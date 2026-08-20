@@ -1,0 +1,29 @@
+# =========================
+# Secrets & Configs
+# =========================
+.env
+.env.local
+application-local.properties
+
+# =========================
+# OS & IDE Files
+# =========================
+.DS_Store
+.vscode/
+.idea/
+*.iml
+
+# =========================
+# Java / Spring Boot Build
+# =========================
+target/
+*.jar
+*.war
+.mvn/wrapper/maven-wrapper.jar
+
+# =========================
+# Node.js / Next.js Build
+# =========================
+node_modules/
+.next/
+out/
