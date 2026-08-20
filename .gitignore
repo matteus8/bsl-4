@@ -4,6 +4,7 @@
 .env
 .env.local
 application-local.properties
+application.properties
 
 # =========================
 # OS & IDE Files

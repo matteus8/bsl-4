@@ -20,4 +20,10 @@ public class DashboardController {
         nasaService.fetchAndSaveAsteroids();
         return "NASA asteroid data fetch triggered and logged to Supabase!";
     }
+
+    @GetMapping("/refresh-donki")
+    public String refreshDonkiData() {
+        nasaService.fetchAndSaveSpaceWeather();
+        return "DONKI space weather notifications fetched and logged to Supabase!";
+    }
 }
