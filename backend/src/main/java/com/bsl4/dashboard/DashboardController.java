@@ -76,8 +76,11 @@ public class DashboardController {
     }
 
     @GetMapping("/threats/latest")
-    public List<ThreatRecord> getLatestThreats() {
-        return threatRecordRepository.findTop100ByOrderByRecordedAtDesc();
+    public List<ThreatRecord> getLatestThreats(@RequestParam(required = false, defaultValue = "30") Integer days) {
+        if (days != null && days > 0) {
+            return threatRecordRepository.findByRecordedAtAfterOrderByRecordedAtDesc(java.time.LocalDateTime.now().minusDays(days));
+        }
+        return threatRecordRepository.findTop500ByOrderByRecordedAtDesc();
     }
 
     @GetMapping("/threats/highest")

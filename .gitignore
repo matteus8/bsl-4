@@ -5,6 +5,8 @@
 .env.local
 application-local.properties
 application.properties
+deploy-aws.sh
+deploy-*.sh
 
 # =========================
 # OS & IDE Files
@@ -32,4 +34,10 @@ out/
 # Media & Screenshots
 *.mp4
 *.mov
-image.png
+*.png
+*.jpg
+*.jpeg
+*.svg
+response.json
+system-overview.md
+*.log

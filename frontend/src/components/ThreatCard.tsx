@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { ThreatRecord } from '@/types/threats';
 import { 
   Activity, 
@@ -8,19 +8,69 @@ import {
   Orbit, 
   CloudLightning, 
   TrendingDown, 
-  Wine, 
-  ChevronRight,
-  MapPin
+  MapPin,
+  Compass, 
+  Layers,
+  Clock,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { formatDistance } from '@/lib/geo';
 
 interface EventTableProps {
   threats: ThreatRecord[];
   onSelectThreat: (threat: ThreatRecord) => void;
+  hoveredThreatId?: number | string | null;
+  setHoveredThreatId?: (id: number | string | null) => void;
   isDark?: boolean;
 }
 
-export default function EventTable({ threats, onSelectThreat, isDark = true }: EventTableProps) {
+export default function EventTable({ 
+  threats, 
+  onSelectThreat, 
+  hoveredThreatId, 
+  setHoveredThreatId, 
+  isDark = true 
+}: EventTableProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 12;
+
+  const totalPages = Math.ceil(threats.length / pageSize) || 1;
+  const paginatedThreats = threats.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const formatEventDate = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffHours / 24);
+
+      let relative = '';
+      if (diffHours < 1) {
+        relative = 'Just now';
+      } else if (diffHours < 24) {
+        relative = `${diffHours}h ago`;
+      } else if (diffDays === 1) {
+        relative = 'Yesterday';
+      } else {
+        relative = `${diffDays}d ago`;
+      }
+
+      const formattedDate = date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+
+      return { relative, formattedDate };
+    } catch {
+      return { relative: 'Logged', formattedDate: dateStr };
+    }
+  };
+
   const getCategoryDetails = (type: string) => {
     switch (type) {
       case 'EARTHQUAKE':
@@ -38,18 +88,69 @@ export default function EventTable({ threats, onSelectThreat, isDark = true }: E
     }
   };
 
-  const getEventLocation = (threat: ThreatRecord) => {
+  const renderLocationInfo = (threat: ThreatRecord) => {
+    let place = '';
+    let isPhysical = false;
+
     try {
       const meta = typeof threat.metadata === 'string' ? JSON.parse(threat.metadata) : threat.metadata;
-      if (meta?.place) return meta.place;
-      if (threat.distanceKm !== undefined) return formatDistance(threat.distanceKm);
-      if (threat.threatType === 'ASTEROID') return 'Near-Earth Orbit';
-      if (threat.threatType === 'SPACE_WEATHER') return 'Solar Activity';
-      if (threat.threatType === 'STOCK_MARKET') return 'Global Financial Markets';
+      if (meta && typeof meta.latitude === 'number' && typeof meta.longitude === 'number') {
+        isPhysical = true;
+        place = meta.place || `${meta.latitude.toFixed(2)}°, ${meta.longitude.toFixed(2)}°`;
+      }
     } catch {
       // Ignored
     }
-    return threat.distanceKm !== undefined ? formatDistance(threat.distanceKm) : 'Global';
+
+    if (threat.threatType === 'STOCK_MARKET') {
+      return (
+        <div className="flex items-center gap-1.5 text-slate-400">
+          <Layers className="w-3.5 h-3.5 text-red-400 shrink-0" />
+          <span className="text-[11px] font-mono">Global Market Index</span>
+        </div>
+      );
+    }
+
+    if (threat.threatType === 'SPACE_WEATHER') {
+      return (
+        <div className="flex items-center gap-1.5 text-slate-400">
+          <Flame className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          <span className="text-[11px] font-mono">Solar / Ionospheric</span>
+        </div>
+      );
+    }
+
+    if (threat.threatType === 'ASTEROID') {
+      return (
+        <div className="flex items-center gap-1.5 text-slate-400">
+          <Orbit className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+          <span className="text-[11px] font-mono">Near-Earth Orbit</span>
+        </div>
+      );
+    }
+
+    if (isPhysical || threat.threatType === 'EARTHQUAKE' || threat.threatType === 'TERRESTRIAL_WEATHER') {
+      return (
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-1.5">
+            <MapPin className="w-3.5 h-3.5 text-[#FF007F] shrink-0" />
+            <span className="truncate max-w-[170px] font-medium">{place || 'Active Zone'}</span>
+          </div>
+          {threat.distanceKm !== undefined && (
+            <div className={`text-[10px] pl-5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              {formatDistance(threat.distanceKm)}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-1.5 text-slate-400">
+        <Compass className="w-3.5 h-3.5 shrink-0" />
+        <span className="text-[11px]">Global Telemetry</span>
+      </div>
+    );
   };
 
   return (
@@ -64,36 +165,41 @@ export default function EventTable({ threats, onSelectThreat, isDark = true }: E
                 ? 'border-[#282a33] bg-[#121316]/90 text-slate-400'
                 : 'border-slate-200 bg-slate-50 text-slate-500'
             }`}>
-              <th className="py-3.5 px-4">Event</th>
+              <th className="py-3.5 px-4">Hazard Event</th>
               <th className="py-3.5 px-4">Category</th>
-              <th className="py-3.5 px-4 text-center">Activity Level</th>
-              <th className="py-3.5 px-4">Location</th>
-              <th className="py-3.5 px-4">Drink Pairing</th>
-              <th className="py-3.5 px-4 text-right">Recipe</th>
+              <th className="py-3.5 px-4 text-center">Threat Level</th>
+              <th className="py-3.5 px-4">Location / Domain</th>
+              <th className="py-3.5 px-4">Recorded</th>
+              <th className="py-3.5 px-4 text-right">Telemetry</th>
             </tr>
           </thead>
           <tbody className={`divide-y ${isDark ? 'divide-[#282a33]' : 'divide-slate-200'}`}>
-            {threats.map((threat) => {
+            {paginatedThreats.map((threat) => {
               const cat = getCategoryDetails(threat.threatType);
               const Icon = cat.icon;
-              const locationStr = getEventLocation(threat);
+              const isHovered = hoveredThreatId === (threat.id || threat.title);
+              const { relative, formattedDate } = formatEventDate(threat.recordedAt);
 
               return (
                 <tr
                   key={threat.id || threat.title}
                   onClick={() => onSelectThreat(threat)}
+                  onMouseEnter={() => setHoveredThreatId?.(threat.id || threat.title)}
+                  onMouseLeave={() => setHoveredThreatId?.(null)}
                   className={`transition-colors cursor-pointer group ${
-                    isDark ? 'hover:bg-[#1c1e24]' : 'hover:bg-slate-50'
+                    isHovered 
+                      ? isDark ? 'bg-[#232733]' : 'bg-pink-50/70'
+                      : isDark ? 'hover:bg-[#1c1e24]' : 'hover:bg-slate-50'
                   }`}
                 >
                   {/* Event Title & Summary */}
-                  <td className="py-3.5 px-4 max-w-xs">
+                  <td className="py-3.5 px-4 max-w-sm">
                     <div className={`font-semibold group-hover:text-[#FF007F] transition-colors text-sm ${
                       isDark ? 'text-white' : 'text-slate-900'
                     }`}>
                       {threat.title}
                     </div>
-                    <div className={`text-[11px] truncate max-w-sm ${
+                    <div className={`text-[11px] truncate max-w-md ${
                       isDark ? 'text-slate-400' : 'text-slate-500'
                     }`}>
                       {threat.description}
@@ -115,34 +221,30 @@ export default function EventTable({ threats, onSelectThreat, isDark = true }: E
                     </span>
                   </td>
 
-                  {/* Location / Proximity */}
+                  {/* Location / Domain */}
                   <td className={`py-3.5 px-4 whitespace-nowrap ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-[#FF007F] shrink-0" />
-                      <span className="truncate max-w-[170px]">{locationStr}</span>
+                    {renderLocationInfo(threat)}
+                  </td>
+
+                  {/* Timestamp & Age */}
+                  <td className={`py-3.5 px-4 whitespace-nowrap ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1 font-mono text-[11px]">
+                        <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span className="font-semibold">{relative}</span>
+                      </div>
+                      <div className={`text-[10px] font-mono pl-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                        {formattedDate}
+                      </div>
                     </div>
                   </td>
 
-                  {/* Drink Recommendation */}
-                  <td className="py-3.5 px-4 whitespace-nowrap">
-                    <div className={`flex items-center gap-1.5 font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                      <Wine className="w-3.5 h-3.5 text-[#FF007F] shrink-0" />
-                      <span>{threat.recommendedDrink}</span>
-                    </div>
-                  </td>
-
-                  {/* Action Button */}
+                  {/* Telemetry Status / Action */}
                   <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectThreat(threat);
-                      }}
-                      className="inline-flex items-center gap-1 px-3 py-1 bg-[#FF007F]/15 hover:bg-[#FF007F] text-[#FF007F] hover:text-white rounded-lg text-xs font-semibold transition"
-                    >
-                      <span>Recipe</span>
-                      <ChevronRight className="w-3 h-3" />
-                    </button>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-mono text-emerald-400 font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span>LOGGED</span>
+                    </span>
                   </td>
                 </tr>
               );
@@ -150,6 +252,42 @@ export default function EventTable({ threats, onSelectThreat, isDark = true }: E
           </tbody>
         </table>
       </div>
+
+      {/* Pagination & Row Count Footer */}
+      <div className={`px-4 py-3 border-t flex flex-col sm:flex-row items-center justify-between gap-3 text-xs ${
+        isDark ? 'border-[#282a33] bg-[#121316]/70 text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-600'
+      }`}>
+        <div className="font-mono text-[11px]">
+          Showing <span className="font-bold text-[#FF007F]">{threats.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}</span> to <span className="font-bold text-[#FF007F]">{Math.min(currentPage * pageSize, threats.length)}</span> of <span className="font-bold text-white">{threats.length}</span> filtered events
+        </div>
+
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className={`p-1.5 rounded-lg border transition disabled:opacity-30 disabled:cursor-not-allowed ${
+                isDark ? 'border-[#282a33] hover:bg-[#1f222b] text-white' : 'border-slate-200 hover:bg-slate-100 text-slate-800'
+              }`}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="px-2 font-mono text-[11px]">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className={`p-1.5 rounded-lg border transition disabled:opacity-30 disabled:cursor-not-allowed ${
+                isDark ? 'border-[#282a33] hover:bg-[#1f222b] text-white' : 'border-slate-200 hover:bg-slate-100 text-slate-800'
+              }`}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+

@@ -1,17 +1,21 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { ThreatRecord, UserLocation } from '@/types/threats';
-import { MapPin } from 'lucide-react';
+import { ThreatRecord, ThreatCategory, UserLocation } from '@/types/threats';
+import { Globe, Layers } from 'lucide-react';
 import { geoNaturalEarth1, geoPath } from 'd3-geo';
 import { feature } from 'topojson-client';
 import type { Topology } from 'topojson-specification';
 import worldAtlasData from 'world-atlas/land-110m.json';
+import { formatDistance } from '@/lib/geo';
 
 interface SimpleFlatMapProps {
   threats: ThreatRecord[];
   userLocation: UserLocation;
   onSelectThreat: (threat: ThreatRecord) => void;
+  hoveredThreatId?: number | string | null;
+  setHoveredThreatId?: (id: number | string | null) => void;
+  activeCategory?: ThreatCategory;
   isDark?: boolean;
 }
 
@@ -19,6 +23,9 @@ export default function SimpleFlatMap({
   threats,
   userLocation,
   onSelectThreat,
+  hoveredThreatId,
+  setHoveredThreatId,
+  activeCategory = 'ALL',
   isDark = true,
 }: SimpleFlatMapProps) {
   // Generate real Natural Earth world map SVG path
@@ -39,106 +46,53 @@ export default function SimpleFlatMap({
     return { landPath: path, projection: proj };
   }, []);
 
-  // Compute user zip pin coordinates on real map
+  // Compute user pin coordinates on real map
   const userPinCoords = useMemo(() => {
     const pt = projection([userLocation.longitude, userLocation.latitude]);
     return pt ? { x: pt[0], y: pt[1] } : { x: 200, y: 150 };
   }, [projection, userLocation]);
 
-  // Extract real coordinates for events
+  // Extract only genuine physical coordinates (Earthquakes, localized Weather alerts)
+  // Non-geographical threats (Stock Market, Space Weather, Asteroids) do NOT have map pins
   const mappedThreats = useMemo(() => {
-    return threats.map((t, idx) => {
-      let lat: number | null = null;
-      let lon: number | null = null;
+    return threats
+      .filter((t) => activeCategory === 'ALL' || t.threatType === activeCategory)
+      .map((t) => {
+        let lat: number | null = null;
+        let lon: number | null = null;
 
-      try {
-        const meta = typeof t.metadata === 'string' ? JSON.parse(t.metadata) : t.metadata;
-        if (meta && typeof meta.latitude === 'number' && typeof meta.longitude === 'number') {
-          lat = meta.latitude;
-          lon = meta.longitude;
-        } else if (meta && typeof meta.lat === 'number' && typeof meta.lon === 'number') {
-          lat = meta.lat;
-          lon = meta.lon;
+        try {
+          const meta = typeof t.metadata === 'string' ? JSON.parse(t.metadata) : t.metadata;
+          if (meta && typeof meta.latitude === 'number' && typeof meta.longitude === 'number') {
+            lat = meta.latitude;
+            lon = meta.longitude;
+          } else if (meta && typeof meta.lat === 'number' && typeof meta.lon === 'number') {
+            lat = meta.lat;
+            lon = meta.lon;
+          }
+        } catch {
+          // Ignored
         }
-      } catch {
-        // Ignored
-      }
 
-      // If no explicit coordinates, provide realistic regional hub distribution
-      if (lat === null || lon === null) {
-        const titleLower = t.title.toLowerCase();
-        if (titleLower.includes('california') || titleLower.includes('san andreas')) { lat = 34.05; lon = -118.24; }
-        else if (titleLower.includes('oregon') || titleLower.includes('cascadia')) { lat = 44.52; lon = -124.50; }
-        else if (titleLower.includes('alaska') || titleLower.includes('aleutian')) { lat = 61.21; lon = -149.90; }
-        else if (titleLower.includes('hawaii')) { lat = 19.89; lon = -155.58; }
-        else if (titleLower.includes('japan') || titleLower.includes('honshu')) { lat = 35.68; lon = 139.76; }
-        else if (titleLower.includes('indonesia') || titleLower.includes('java')) { lat = -6.20; lon = 106.84; }
-        else if (titleLower.includes('chile')) { lat = -33.44; lon = -70.66; }
-        else if (titleLower.includes('mexico')) { lat = 19.43; lon = -99.13; }
-        else if (titleLower.includes('pacific-antarctic') || titleLower.includes('antarctic')) { lat = -55.0; lon = -135.0; }
-        else if (titleLower.includes('fiji') || titleLower.includes('tonga')) { lat = -18.14; lon = 178.44; }
-        else if (titleLower.includes('iceland')) { lat = 64.14; lon = -21.94; }
-        else if (titleLower.includes('greece') || titleLower.includes('turkey') || titleLower.includes('mediterranean')) { lat = 37.98; lon = 23.72; }
-        else if (t.threatType === 'STOCK_MARKET') {
-          // Major financial hubs
-          const hubs = [
-            [-74.006, 40.712], // NYC
-            [-0.127, 51.507],  // London
-            [139.691, 35.689], // Tokyo
-            [8.541, 47.376],   // Zurich
-            [114.169, 22.319], // Hong Kong
-          ];
-          const hub = hubs[idx % hubs.length];
-          lon = hub[0];
-          lat = hub[1];
-        } else if (t.threatType === 'TERRESTRIAL_WEATHER') {
-          const weatherLocs = [
-            [-95.369, 29.760], // Gulf Coast
-            [-80.191, 25.761], // Florida
-            [-97.516, 35.467], // Tornado Alley
-            [-87.629, 41.878], // Great Lakes
-          ];
-          const w = weatherLocs[idx % weatherLocs.length];
-          lon = w[0];
-          lat = w[1];
-        } else if (t.threatType === 'SPACE_WEATHER') {
-          // Auroral / solar monitoring stations
-          const stations = [
-            [-18.0, 65.0],   // Arctic/Iceland
-            [-147.7, 64.8],  // Fairbanks
-            [18.9, 69.6],    // Tromso
-            [-155.5, 19.8],  // Mauna Kea
-          ];
-          const st = stations[idx % stations.length];
-          lon = st[0];
-          lat = st[1];
-        } else if (t.threatType === 'ASTEROID') {
-          // Deep space tracking observatories
-          const dsn = [
-            [-116.8, 35.3],  // Goldstone
-            [148.9, -35.4],  // Canberra
-            [-4.2, 40.4],    // Madrid
-            [-70.7, -29.2],  // La Silla Chile
-            [138.6, -34.9],  // Adelaide
-          ];
-          const obs = dsn[idx % dsn.length];
-          lon = obs[0];
-          lat = obs[1];
-        }
-      }
+        // Strictly require verified latitude and longitude
+        if (lat === null || lon === null) return null;
 
-      if (lat === null || lon === null) return null;
+        const pt = projection([lon, lat]);
+        if (!pt) return null;
 
-      const pt = projection([lon, lat]);
-      if (!pt) return null;
+        return {
+          ...t,
+          mapX: pt[0],
+          mapY: pt[1],
+        };
+      })
+      .filter((t): t is ThreatRecord & { mapX: number; mapY: number } => t !== null);
+  }, [threats, projection, activeCategory]);
 
-      return {
-        ...t,
-        mapX: pt[0],
-        mapY: pt[1],
-      };
-    }).filter((t): t is ThreatRecord & { mapX: number; mapY: number } => t !== null);
-  }, [threats, projection]);
+  const isNonGeospatialCategory = 
+    activeCategory === 'STOCK_MARKET' || 
+    activeCategory === 'SPACE_WEATHER' || 
+    activeCategory === 'ASTEROID';
 
   return (
     <div className={`border rounded-2xl p-5 shadow-sm transition-colors ${
@@ -146,10 +100,15 @@ export default function SimpleFlatMap({
     } space-y-3`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-[#FF007F]" />
+          <Globe className="w-4 h-4 text-[#FF007F]" />
           <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-            Global Activity Map
+            Global Physical Hazard Radar
           </h3>
+          <span className={`text-[10px] px-2 py-0.5 rounded font-mono ${
+            isDark ? 'bg-[#21242d] text-slate-400' : 'bg-slate-100 text-slate-600'
+          }`}>
+            Geospatial Events Only
+          </span>
         </div>
         <div className={`flex items-center gap-3 text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
           <span className="flex items-center gap-1.5">
@@ -157,8 +116,8 @@ export default function SimpleFlatMap({
             <span>{userLocation.cityName?.split(' (')[0] || 'Your Region'}</span>
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-            <span>{mappedThreats.length} Active Events</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+            <span>{mappedThreats.length} Mapped Hazards</span>
           </span>
         </div>
       </div>
@@ -188,39 +147,81 @@ export default function SimpleFlatMap({
           />
         </svg>
 
+        {/* Non-geospatial category overlay banner */}
+        {isNonGeospatialCategory && (
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 z-20 pointer-events-none">
+            <div className={`px-4 py-2.5 rounded-xl border flex items-center gap-3 shadow-xl ${
+              isDark ? 'bg-[#16171c]/95 border-[#282a33] text-slate-200' : 'bg-white/95 border-slate-200 text-slate-800'
+            }`}>
+              <Layers className="w-4 h-4 text-[#FF007F]" />
+              <div className="text-xs">
+                <span className="font-semibold text-[#FF007F]">Non-Geographical Category Active:</span>
+                <span className="ml-1 text-slate-400">
+                  {activeCategory === 'STOCK_MARKET' && 'Financial indices (VIX / Panic metrics) are tracked in the data board below.'}
+                  {activeCategory === 'SPACE_WEATHER' && 'Solar & ionospheric events are orbital metrics tracked below.'}
+                  {activeCategory === 'ASTEROID' && 'Near-Earth Object flybys are deep space orbital metrics tracked below.'}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* HTML Interactive Marker Layer */}
         {mappedThreats.map((threat) => {
           const leftPct = (threat.mapX / 1000) * 100;
           const topPct = (threat.mapY / 500) * 100;
+          const isHovered = hoveredThreatId === (threat.id || threat.title);
+          const isHighSeverity = threat.severityScore >= 8.0;
 
           return (
             <button
               key={threat.id || threat.title}
               onClick={() => onSelectThreat(threat)}
-              className="absolute transform -translate-x-1/2 -translate-y-1/2 group z-10 p-1"
+              onMouseEnter={() => setHoveredThreatId?.(threat.id || threat.title)}
+              onMouseLeave={() => setHoveredThreatId?.(null)}
+              className={`absolute transform -translate-x-1/2 -translate-y-1/2 group transition-transform ${
+                isHovered ? 'z-30 scale-125' : 'z-10'
+              } p-1`}
               style={{ left: `${leftPct}%`, top: `${topPct}%` }}
               title={threat.title}
             >
-              {/* Solid Static Event Dot */}
-              <span className="relative flex h-2.5 w-2.5 items-center justify-center">
-                <span className={`inline-flex rounded-full h-2 w-2 bg-amber-400 border shadow-sm ${
-                  isDark ? 'border-[#101114]' : 'border-white'
+              {/* Pulsing ring for high severity or hovered event */}
+              {(isHighSeverity || isHovered) && (
+                <span className={`absolute -inset-1 rounded-full animate-ping opacity-60 ${
+                  isHighSeverity ? 'bg-rose-500' : 'bg-[#FF007F]'
+                }`} />
+              )}
+
+              {/* Solid Marker Dot */}
+              <span className="relative flex h-3 w-3 items-center justify-center">
+                <span className={`inline-flex rounded-full h-2.5 w-2.5 border shadow-sm transition-colors ${
+                  isHovered
+                    ? 'bg-[#FF007F] border-white'
+                    : isHighSeverity
+                    ? 'bg-rose-500 border-white'
+                    : 'bg-amber-400 border-[#101114]'
                 }`} />
               </span>
 
-              {/* Hover Tooltip Popup */}
-              <div className={`hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-3 py-1.5 rounded-lg shadow-xl text-left whitespace-nowrap z-30 pointer-events-none border transition-all ${
+              {/* Tooltip Popup */}
+              <div className={`${
+                isHovered ? 'block' : 'hidden group-hover:block'
+              } absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-xl shadow-2xl text-left whitespace-nowrap z-40 pointer-events-none border transition-all ${
                 isDark
                   ? 'bg-[#1a1c23] border-[#2e313d] text-white'
                   : 'bg-white border-slate-200 text-slate-900'
               }`}>
-                <div className="font-bold text-xs max-w-[200px] truncate">{threat.title}</div>
-                <div className={`text-[10px] flex items-center gap-2 mt-0.5 ${
+                <div className="font-bold text-xs max-w-[220px] truncate">{threat.title}</div>
+                <div className={`text-[10px] flex items-center gap-2 mt-1 ${
                   isDark ? 'text-slate-400' : 'text-slate-500'
                 }`}>
-                  <span className="text-[#FF007F] font-bold">Lvl {threat.severityScore.toFixed(1)}</span>
-                  <span>&bull;</span>
-                  <span className="truncate max-w-[130px]">{threat.recommendedDrink}</span>
+                  <span className="text-[#FF007F] font-bold">Severity {threat.severityScore.toFixed(1)}/10</span>
+                  {threat.distanceKm !== undefined && (
+                    <>
+                      <span>&bull;</span>
+                      <span className="text-amber-400 font-medium">{formatDistance(threat.distanceKm)}</span>
+                    </>
+                  )}
                 </div>
               </div>
             </button>
@@ -250,3 +251,4 @@ export default function SimpleFlatMap({
     </div>
   );
 }
+

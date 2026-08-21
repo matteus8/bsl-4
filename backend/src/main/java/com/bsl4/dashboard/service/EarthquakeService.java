@@ -27,7 +27,7 @@ public class EarthquakeService {
     public void fetchAndSaveEarthquakes() {
         try {
             Map<String, Object> response = restClient.get()
-                    .uri("/4.5_day.geojson")
+                    .uri("/4.5_month.geojson")
                     .retrieve()
                     .body(Map.class);
 

@@ -30,14 +30,15 @@ public class NasaService {
     }
 
     public void fetchAndSaveAsteroids() {
-        String today = LocalDate.now().toString();
+        LocalDate end = LocalDate.now();
+        LocalDate start = end.minusDays(7); // Max 7 days per feed query
         
         try {
             Map<String, Object> response = restClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/neo/rest/v1/feed")
-                            .queryParam("start_date", today)
-                            .queryParam("end_date", today)
+                            .queryParam("start_date", start.toString())
+                            .queryParam("end_date", end.toString())
                             .queryParam("api_key", nasaApiKey)
                             .build())
                     .retrieve()
@@ -46,18 +47,22 @@ public class NasaService {
             if (response != null && response.containsKey("near_earth_objects")) {
                 Map<String, Object> neoMap = (Map<String, Object>) response.get("near_earth_objects");
                 
-                if (neoMap.containsKey(today)) {
-                    List<Map<String, Object>> asteroids = (List<Map<String, Object>>) neoMap.get(today);
+                for (String dateKey : neoMap.keySet()) {
+                    List<Map<String, Object>> asteroids = (List<Map<String, Object>>) neoMap.get(dateKey);
+                    if (asteroids == null) continue;
                     
                     for (Map<String, Object> asteroid : asteroids) {
                         String name = (String) asteroid.get("name");
                         Boolean isHazardous = (Boolean) asteroid.get("is_potentially_hazardous_asteroid");
                         
                         Map<String, Object> diamMap = (Map<String, Object>) asteroid.get("estimated_diameter");
-                        Map<String, Object> metersMap = (Map<String, Object>) diamMap.get("meters");
-                        Double maxDiameter = (Double) metersMap.get("estimated_diameter_max");
+                        Double maxDiameter = 50.0;
+                        if (diamMap != null && diamMap.containsKey("meters")) {
+                            Map<String, Object> metersMap = (Map<String, Object>) diamMap.get("meters");
+                            maxDiameter = (Double) metersMap.get("estimated_diameter_max");
+                        }
 
-                        double severity = isHazardous ? 9.5 : Math.min(maxDiameter / 10.0, 5.0);
+                        double severity = Boolean.TRUE.equals(isHazardous) ? 9.5 : Math.min((maxDiameter != null ? maxDiameter : 50.0) / 10.0, 5.0);
                         
                         // Prescribe cocktail dynamically
                         CocktailService.PrescribedDrink drink = cocktailService.prescribeDrink("ASTEROID", severity);
@@ -65,7 +70,7 @@ public class NasaService {
                         // Construct structured JSON metadata
                         String jsonMetadata = String.format(
                             "{\"max_width_meters\": %.2f, \"is_hazardous\": %b, \"cocktail\": %s}",
-                            maxDiameter, isHazardous, drink.metadataJson()
+                            maxDiameter != null ? maxDiameter : 50.0, isHazardous, drink.metadataJson()
                         );
 
                         ThreatRecord record = new ThreatRecord(
@@ -75,13 +80,13 @@ public class NasaService {
                             "Hazardous: " + isHazardous + " | Max Width: " + maxDiameter + " meters",
                             drink.name(),
                             jsonMetadata,
-                            LocalDateTime.now()
+                            LocalDate.parse(dateKey).atStartOfDay()
                         );
                         
                         threatRecordRepository.save(record);
                     }
-                    System.out.println(">>> Successfully parsed and saved real asteroids for " + today);
                 }
+                System.out.println(">>> Successfully parsed and saved real asteroids for 30-day feed.");
             }
         } catch (Exception e) {
             System.err.println(">>> Failed to fetch/parse NASA asteroid data: " + e.getMessage());
@@ -94,7 +99,7 @@ public class NasaService {
             Map[] response = restClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/DONKI/notifications")
-                            .queryParam("startDate", LocalDate.now().minusDays(5).toString())
+                            .queryParam("startDate", LocalDate.now().minusDays(30).toString())
                             .queryParam("endDate", LocalDate.now().toString())
                             .queryParam("api_key", nasaApiKey)
                             .build())
@@ -106,6 +111,7 @@ public class NasaService {
                     String messageType = (String) event.get("messageType");
                     String messageBody = (String) event.get("messageBody");
                     String messageID = (String) event.get("messageID");
+                    String messageIssueTime = (String) event.get("messageIssueTime");
 
                     double severity = calculateSpaceWeatherSeverity(messageType, messageBody);
                     CocktailService.PrescribedDrink drink = cocktailService.prescribeDrink("SPACE_WEATHER", severity);
@@ -116,6 +122,10 @@ public class NasaService {
                         messageID, drink.metadataJson()
                     );
 
+                    LocalDateTime recordedAt = messageIssueTime != null 
+                        ? LocalDateTime.parse(messageIssueTime.replace("Z", "")) 
+                        : LocalDateTime.now();
+
                     ThreatRecord record = new ThreatRecord(
                         "SPACE_WEATHER",
                         messageType + " Event",
@@ -123,12 +133,12 @@ public class NasaService {
                         shortBody,
                         drink.name(),
                         jsonMetadata,
-                        LocalDateTime.now()
+                        recordedAt
                     );
                     
                     threatRecordRepository.save(record);
                 }
-                System.out.println(">>> Successfully fetched and saved DONKI space weather events with dynamic severity & drinks!");
+                System.out.println(">>> Successfully fetched and saved 30 days of DONKI space weather events!");
             }
         } catch (Exception e) {
             System.err.println(">>> Failed to fetch DONKI space weather data: " + e.getMessage());

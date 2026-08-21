@@ -6,6 +6,8 @@ export type ThreatCategory =
   | 'TERRESTRIAL_WEATHER'
   | 'STOCK_MARKET';
 
+export type DateRangePreset = '24H' | '7D' | '30D' | 'ALL' | 'CUSTOM';
+
 export interface CocktailMetadata {
   drink_name?: string;
   glass?: string;
