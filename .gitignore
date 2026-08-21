@@ -28,3 +28,8 @@ target/
 node_modules/
 .next/
 out/
+
+# Media & Screenshots
+*.mp4
+*.mov
+image.png
