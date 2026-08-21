@@ -1,0 +1,26 @@
+spring.application.name=bsl4-dashboard
+server.port=8080
+
+# Database Configuration (Supabase PostgreSQL / Local Fallback)
+spring.datasource.url=${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/postgres}
+spring.datasource.username=${SPRING_DATASOURCE_USERNAME:postgres}
+spring.datasource.password=${SPRING_DATASOURCE_PASSWORD:postgres}
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+# JPA / Hibernate Configuration
+spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=false
+spring.jpa.open-in-view=false
+
+# HikariCP Connection Pool (optimized for AWS Lambda Serverless)
+spring.datasource.hikari.maximum-pool-size=2
+spring.datasource.hikari.minimum-idle=1
+spring.datasource.hikari.idle-timeout=30000
+spring.datasource.hikari.max-lifetime=60000
+spring.datasource.hikari.connection-timeout=20000
+
+# API Keys & Custom Headers
+nasa.api.key=${NASA_API_KEY:DEMO_KEY}
+weathergov.useragent=${WEATHERGOV_USERAGENT:BSL4ProtocolZero/1.0 (contact@platformstaq.com)}
+
