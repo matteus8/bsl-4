@@ -6,6 +6,7 @@
 application-local.properties
 application.properties
 deploy-aws.sh
+deploy-worker.sh
 deploy-*.sh
 
 # =========================
@@ -40,4 +41,6 @@ out/
 *.svg
 response.json
 system-overview.md
+worker/build/
+worker/*.zip
 *.log
