@@ -102,7 +102,7 @@ export default function SimpleFlatMap({
         <div className="flex items-center gap-2">
           <Globe className="w-4 h-4 text-[#FF007F]" />
           <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-            Global Physical Hazard Radar
+            Hazard Map
           </h3>
           <span className={`text-[10px] px-2 py-0.5 rounded font-mono ${
             isDark ? 'bg-[#21242d] text-slate-400' : 'bg-slate-100 text-slate-600'

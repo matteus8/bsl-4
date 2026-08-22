@@ -8,6 +8,7 @@ application.properties
 deploy-aws.sh
 deploy-worker.sh
 deploy-*.sh
+!deploy-frontend.sh
 
 # =========================
 # OS & IDE Files

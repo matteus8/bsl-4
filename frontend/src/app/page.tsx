@@ -186,7 +186,7 @@ export default function Dashboard() {
       />
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-6 space-y-6">
-        {/* 1. Global Physical Hazard Radar at Top of Screen (Geospatial Events Only) */}
+        {/* 1. Global Hazard Map at Top of Screen (Geospatial Events Only) */}
         <SimpleFlatMap
           threats={filteredThreats}
           userLocation={userLocation}
