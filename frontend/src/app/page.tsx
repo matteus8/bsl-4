@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Header from '@/components/Header';
-import SimpleFlatMap from '@/components/TacticalRadarMap';
-import LocationSearch from '@/components/LocationSearch';
+import TacticalRadarMap from '@/components/TacticalRadarMap';
 import EventTable from '@/components/ThreatCard';
 import EventDetailModal from '@/components/EventDetailModal';
 import CocktailModal, { AmalgamatedCountermeasureData } from '@/components/CocktailModal';
@@ -32,7 +31,7 @@ export default function Dashboard() {
   const [dateRangePreset, setDateRangePreset] = useState<DateRangePreset>('7D');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
-  const [sortBy, setSortBy] = useState<'NEWEST' | 'SEVERITY' | 'PROXIMITY' | 'OLDEST'>('NEWEST');
+  const [sortBy, setSortBy] = useState<'NEWEST' | 'SEVERITY' | 'PROXIMITY' | 'OLDEST'>('PROXIMITY');
   const [searchQuery, setSearchQuery] = useState('');
   const [isDark, setIsDark] = useState(true);
 
@@ -40,9 +39,9 @@ export default function Dashboard() {
 
   // User location for proximity calculations
   const [userLocation, setUserLocation] = useState<UserLocation>({
-    latitude: 34.0522,
-    longitude: -118.2437,
-    cityName: 'Los Angeles, CA, USA',
+    latitude: 38.8339,
+    longitude: -104.8214,
+    cityName: 'Colorado Springs, CO, USA',
     isAutoDetected: false,
   });
 
@@ -87,6 +86,13 @@ export default function Dashboard() {
             userLocation.longitude,
             meta.latitude,
             meta.longitude
+          );
+        } else if (meta && typeof meta.lat === 'number' && typeof meta.lon === 'number') {
+          distanceKm = calculateDistanceKm(
+            userLocation.latitude,
+            userLocation.longitude,
+            meta.lat,
+            meta.lon
           );
         }
       } catch {
@@ -136,9 +142,10 @@ export default function Dashboard() {
         return b.severityScore - a.severityScore;
       }
       if (sortBy === 'PROXIMITY') {
-        const distA = a.distanceKm ?? Infinity;
-        const distB = b.distanceKm ?? Infinity;
-        return distA - distB;
+        const distA = a.distanceKm !== undefined ? a.distanceKm : 999999;
+        const distB = b.distanceKm !== undefined ? b.distanceKm : 999999;
+        if (distA !== distB) return distA - distB;
+        return b.severityScore - a.severityScore;
       }
       if (sortBy === 'OLDEST') {
         return new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime();
@@ -196,11 +203,22 @@ export default function Dashboard() {
       />
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-6 space-y-6">
-        {/* 1. Global Hazard Map at Top of Screen (Geospatial Events Only) */}
-        <SimpleFlatMap
+        {/* 1. Global Hazard Map with Floating Location Search & Interactive Target Pinning */}
+        <TacticalRadarMap
           threats={filteredThreats}
           userLocation={userLocation}
+          setUserLocation={setUserLocation}
           onSelectThreat={(t) => setSelectedThreat(t)}
+          onOpenCocktail={(cocktailData, title, drinkName, severity) => {
+            setAmalgamatedDrink({
+              title,
+              drinkName,
+              severity,
+              locationName: userLocation.cityName || 'Your Location',
+              summary: `Amalgamated situation protocol synthesized for ${userLocation.cityName || 'Selected Coordinates'}.`,
+              cocktailData,
+            });
+          }}
           hoveredThreatId={hoveredThreatId}
           setHoveredThreatId={setHoveredThreatId}
           activeCategory={activeCategory}
@@ -276,24 +294,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 3. Granular Global Address & Location Lookup */}
-        <LocationSearch
-          userLocation={userLocation}
-          setUserLocation={setUserLocation}
-          isDark={isDark}
-          onOpenCocktail={(cocktailData, title, drinkName, severity) => {
-            setAmalgamatedDrink({
-              title,
-              drinkName,
-              severity,
-              locationName: userLocation.cityName || 'Your Location',
-              summary: `Amalgamated situation protocol synthesized for ${userLocation.cityName || 'Selected Coordinates'}.`,
-              cocktailData,
-            });
-          }}
-        />
-
-        {/* 4. Controls Toolbar: Category Pills, Date Filter Presets, Sorting & Search */}
+        {/* 2. Controls Toolbar: Category Pills, Date Filter Presets, Sorting & Search */}
         <div className="space-y-4 pt-2">
           {/* Row 1: Category Filter Buttons */}
           <div className="flex flex-wrap items-center gap-2">

@@ -102,6 +102,9 @@ export default function EventTable({
       if (meta && typeof meta.latitude === 'number' && typeof meta.longitude === 'number') {
         isPhysical = true;
         place = meta.place || `${meta.latitude.toFixed(2)}°, ${meta.longitude.toFixed(2)}°`;
+      } else if (meta && typeof meta.lat === 'number' && typeof meta.lon === 'number') {
+        isPhysical = true;
+        place = meta.place || `${meta.lat.toFixed(2)}°, ${meta.lon.toFixed(2)}°`;
       }
     } catch {
       // Ignored
