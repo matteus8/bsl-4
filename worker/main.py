@@ -425,8 +425,30 @@ def fetch_asteroids():
     return records
 
 
+def extract_centroid(geom):
+    if not geom:
+        return None, None
+    gtype = geom.get("type")
+    coords = geom.get("coordinates", [])
+    if gtype == "Point" and len(coords) >= 2:
+        return float(coords[1]), float(coords[0])
+    elif gtype == "Polygon" and coords:
+        ring = coords[0]
+        if ring:
+            lat = sum(p[1] for p in ring) / len(ring)
+            lon = sum(p[0] for p in ring) / len(ring)
+            return round(float(lat), 4), round(float(lon), 4)
+    elif gtype == "MultiPolygon" and coords:
+        all_pts = [p for poly in coords for ring in poly for p in ring]
+        if all_pts:
+            lat = sum(p[1] for p in all_pts) / len(all_pts)
+            lon = sum(p[0] for p in all_pts) / len(all_pts)
+            return round(float(lat), 4), round(float(lon), 4)
+    return None, None
+
+
 def fetch_weather_and_markets():
-    """Ingests NWS active alerts and synthetic financial volatility indices."""
+    """Ingests NWS active alerts with spatial coordinates and synthetic financial volatility indices."""
     records = []
     
     # 1. NWS Alerts
@@ -436,12 +458,15 @@ def fetch_weather_and_markets():
         data = http_get_json(url, headers=headers)
         features = data.get("features", [])
         
-        for feat in features[:30]:
+        for feat in features[:60]:
             props = feat.get("properties", {})
             event = props.get("event") or "Weather Alert"
             headline = props.get("headline") or event
+            area_desc = props.get("areaDesc") or ""
             severity_str = (props.get("severity") or "Moderate").upper()
             urgency = (props.get("urgency") or "Unknown").upper()
+            
+            lat, lon = extract_centroid(feat.get("geometry"))
             
             severity = 9.0 if severity_str == "EXTREME" else (7.5 if severity_str == "SEVERE" else 5.0)
             if urgency == "IMMEDIATE":
@@ -451,10 +476,14 @@ def fetch_weather_and_markets():
             cocktail = prescribe_drink("TERRESTRIAL_WEATHER", severity)
             metadata = {
                 "event": event,
+                "place": area_desc,
                 "nws_severity": severity_str,
                 "urgency": urgency,
                 "cocktail": cocktail
             }
+            if lat is not None and lon is not None:
+                metadata["latitude"] = lat
+                metadata["longitude"] = lon
             
             records.append({
                 "threat_type": "TERRESTRIAL_WEATHER",
@@ -465,6 +494,7 @@ def fetch_weather_and_markets():
                 "metadata": json.dumps(metadata),
                 "recorded_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
             })
+        logger.info(f"Parsed {len(records)} NWS weather alerts.")
     except Exception as e:
         logger.warning(f"NWS Weather ingestion notice: {e}")
 

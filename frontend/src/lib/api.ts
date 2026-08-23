@@ -18,6 +18,22 @@ export async function fetchLatestThreats(): Promise<ThreatRecord[]> {
   }
 }
 
+export async function fetchNearbyThreats(lat: number, lon: number, days = 30): Promise<ThreatRecord[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/threats/nearby?lat=${lat}&lon=${lon}&days=${days}&physicalLimit=70&globalLimit=30`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store'
+    });
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.warn('Backend nearby query unavailable, using fallback/client data:', err);
+    return fetchLatestThreats();
+  }
+}
+
 export async function triggerProtocolZeroRefresh(): Promise<{ status: string; message: string }> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/threats/refresh-all`, {

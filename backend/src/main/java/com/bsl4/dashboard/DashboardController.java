@@ -5,6 +5,8 @@ import com.bsl4.dashboard.model.ThreatRecordRepository;
 import com.bsl4.dashboard.service.*;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -77,6 +79,32 @@ public class DashboardController {
             System.err.println("Error fetching latest threats: " + e.getMessage());
             e.printStackTrace();
             return List.of();
+        }
+    }
+
+    @GetMapping("/threats/nearby")
+    public List<ThreatRecord> getNearbyThreats(
+            @RequestParam double lat,
+            @RequestParam double lon,
+            @RequestParam(required = false, defaultValue = "30") Integer days,
+            @RequestParam(required = false, defaultValue = "70") Integer physicalLimit,
+            @RequestParam(required = false, defaultValue = "30") Integer globalLimit) {
+        try {
+            LocalDateTime afterDate = LocalDateTime.now().minusDays(days != null ? days : 30);
+            int pLimit = physicalLimit != null ? physicalLimit : 70;
+            int gLimit = globalLimit != null ? globalLimit : 30;
+
+            List<ThreatRecord> physical = threatRecordRepository.findNearbyPhysicalThreats(lat, lon, afterDate, pLimit);
+            List<ThreatRecord> global = threatRecordRepository.findLatestGlobalThreats(afterDate, gLimit);
+
+            List<ThreatRecord> combined = new ArrayList<>(physical.size() + global.size());
+            combined.addAll(physical);
+            combined.addAll(global);
+            return combined;
+        } catch (Exception e) {
+            System.err.println("Error querying nearby threats: " + e.getMessage());
+            e.printStackTrace();
+            return threatRecordRepository.findTop100ByOrderByRecordedAtDesc();
         }
     }
 

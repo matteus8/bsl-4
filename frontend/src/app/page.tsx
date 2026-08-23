@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Header from '@/components/Header';
 import TacticalRadarMap from '@/components/TacticalRadarMap';
 import EventTable from '@/components/ThreatCard';
 import EventDetailModal from '@/components/EventDetailModal';
 import CocktailModal, { AmalgamatedCountermeasureData } from '@/components/CocktailModal';
 import { ThreatRecord, ThreatCategory, UserLocation, DateRangePreset } from '@/types/threats';
-import { fetchLatestThreats, triggerProtocolZeroRefresh } from '@/lib/api';
+import { fetchNearbyThreats, triggerProtocolZeroRefresh } from '@/lib/api';
 import { calculateDistanceKm } from '@/lib/geo';
 import { Search, Compass, TrendingDown, Flame, Orbit, Sparkles, RefreshCw } from 'lucide-react';
 
@@ -45,15 +45,15 @@ export default function Dashboard() {
     isAutoDetected: false,
   });
 
-  const loadData = async () => {
+  const loadData = useCallback(async (lat = userLocation.latitude, lon = userLocation.longitude) => {
     setLoading(true);
     try {
-      const data = await fetchLatestThreats();
+      const data = await fetchNearbyThreats(lat, lon);
       setThreats(data);
     } finally {
       setLoading(false);
     }
-  };
+  }, [userLocation.latitude, userLocation.longitude]);
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -68,11 +68,16 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    loadData();
+    loadData(userLocation.latitude, userLocation.longitude);
+  }, [loadData, userLocation.latitude, userLocation.longitude]);
+
+  useEffect(() => {
     // Ingests / updates every 30 minutes (1,800,000 ms)
-    const interval = setInterval(loadData, 30 * 60 * 1000);
+    const interval = setInterval(() => {
+      loadData(userLocation.latitude, userLocation.longitude);
+    }, 30 * 60 * 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [loadData, userLocation.latitude, userLocation.longitude]);
 
   // Compute distances relative to userLocation
   const enrichedThreats = useMemo(() => {
