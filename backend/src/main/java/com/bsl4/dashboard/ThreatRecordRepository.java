@@ -22,7 +22,7 @@ public interface ThreatRecordRepository extends JpaRepository<ThreatRecord, Long
         FROM threat_records
         WHERE threat_type IN ('EARTHQUAKE', 'TERRESTRIAL_WEATHER')
           AND recorded_at >= :afterDate
-          AND (metadata::jsonb ? 'latitude' OR metadata::jsonb ? 'lat')
+          AND (metadata LIKE '%latitude%' OR metadata LIKE '%lat%')
         ORDER BY (
           6371.0 * acos(
             least(1.0, greatest(-1.0,
