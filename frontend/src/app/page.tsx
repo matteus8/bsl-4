@@ -8,9 +8,9 @@ import EventTable from '@/components/ThreatCard';
 import EventDetailModal from '@/components/EventDetailModal';
 import CocktailModal, { AmalgamatedCountermeasureData } from '@/components/CocktailModal';
 import { ThreatRecord, ThreatCategory, UserLocation, DateRangePreset } from '@/types/threats';
-import { fetchLatestThreats } from '@/lib/api';
+import { fetchLatestThreats, triggerProtocolZeroRefresh } from '@/lib/api';
 import { calculateDistanceKm } from '@/lib/geo';
-import { Search, Compass, TrendingDown, Flame, Orbit, Sparkles } from 'lucide-react';
+import { Search, Compass, TrendingDown, Flame, Orbit, Sparkles, RefreshCw } from 'lucide-react';
 
 const CATEGORIES: { id: ThreatCategory; label: string }[] = [
   { id: 'ALL', label: 'All Events' },
@@ -24,7 +24,7 @@ const CATEGORIES: { id: ThreatCategory; label: string }[] = [
 export default function Dashboard() {
   const [threats, setThreats] = useState<ThreatRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [selectedThreat, setSelectedThreat] = useState<ThreatRecord | null>(null);
   const [amalgamatedDrink, setAmalgamatedDrink] = useState<AmalgamatedCountermeasureData | null>(null);
   const [hoveredThreatId, setHoveredThreatId] = useState<number | string | null>(null);
@@ -53,6 +53,18 @@ export default function Dashboard() {
       setThreats(data);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      await triggerProtocolZeroRefresh();
+      await loadData();
+    } catch (err) {
+      console.error('Failed to sync telemetry:', err);
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -179,8 +191,6 @@ export default function Dashboard() {
       <Header
         userLocation={userLocation}
         setUserLocation={setUserLocation}
-        onRefresh={loadData}
-        isRefreshing={loading || refreshing}
         isDark={isDark}
         toggleTheme={toggleTheme}
       />
@@ -444,6 +454,8 @@ export default function Dashboard() {
               hoveredThreatId={hoveredThreatId}
               setHoveredThreatId={setHoveredThreatId}
               isDark={isDark}
+              onSync={handleSync}
+              isSyncing={isSyncing || loading}
             />
           ) : (
             <div className={`border rounded-xl p-10 text-center space-y-2 transition-colors ${
@@ -456,16 +468,30 @@ export default function Dashboard() {
               <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                 Try expanding your time window to <strong>30 Days</strong> or selecting <strong>All Events</strong>.
               </p>
-              <button
-                onClick={() => {
-                  setDateRangePreset('30D');
-                  setActiveCategory('ALL');
-                  setSearchQuery('');
-                }}
-                className="mt-2 px-4 py-2 bg-[#FF007F] hover:bg-[#E60072] text-white font-bold rounded-lg text-xs transition inline-block"
-              >
-                Show All 30-Day Events
-              </button>
+              <div className="flex items-center justify-center gap-2 mt-2">
+                <button
+                  onClick={() => {
+                    setDateRangePreset('30D');
+                    setActiveCategory('ALL');
+                    setSearchQuery('');
+                  }}
+                  className="px-4 py-2 bg-[#FF007F] hover:bg-[#E60072] text-white font-bold rounded-lg text-xs transition inline-block"
+                >
+                  Show All 30-Day Events
+                </button>
+                <button
+                  onClick={handleSync}
+                  disabled={isSyncing || loading}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                    isDark
+                      ? 'bg-[#1a1c23] hover:bg-[#252833] border border-[#282a33] text-slate-200'
+                      : 'bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 shadow-sm'
+                  }`}
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing || loading ? 'animate-spin text-[#FF007F]' : 'text-[#FF007F]'}`} />
+                  <span>{isSyncing || loading ? 'Syncing...' : 'Sync Telemetry'}</span>
+                </button>
+              </div>
             </div>
           )}
         </div>

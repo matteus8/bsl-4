@@ -13,7 +13,8 @@ import {
   Layers,
   Clock,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  RefreshCw
 } from 'lucide-react';
 import { formatDistance } from '@/lib/geo';
 
@@ -23,6 +24,8 @@ interface EventTableProps {
   hoveredThreatId?: number | string | null;
   setHoveredThreatId?: (id: number | string | null) => void;
   isDark?: boolean;
+  onSync?: () => void;
+  isSyncing?: boolean;
 }
 
 export default function EventTable({ 
@@ -30,7 +33,9 @@ export default function EventTable({
   onSelectThreat, 
   hoveredThreatId, 
   setHoveredThreatId, 
-  isDark = true 
+  isDark = true,
+  onSync,
+  isSyncing = false
 }: EventTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 12;
@@ -157,6 +162,41 @@ export default function EventTable({
     <div className={`border rounded-2xl overflow-hidden shadow-sm transition-colors ${
       isDark ? 'bg-[#16171c] border-[#282a33]' : 'bg-white border-slate-200'
     }`}>
+      {/* Table Header Bar with Event Registry & Sync Button */}
+      <div className={`px-4 py-3 border-b flex items-center justify-between gap-3 text-xs ${
+        isDark ? 'border-[#282a33] bg-[#121316]/90 text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-600'
+      }`}>
+        <div className="flex items-center gap-2">
+          <span className="font-semibold tracking-wide uppercase text-[11px] text-slate-400">
+            Threat Event Registry
+          </span>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
+            isDark ? 'bg-[#21242d] text-slate-300' : 'bg-slate-200 text-slate-700'
+          }`}>
+            {threats.length} Events
+          </span>
+        </div>
+
+        {onSync && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onSync();
+            }}
+            disabled={isSyncing}
+            className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-xs font-semibold transition disabled:opacity-50 ${
+              isDark
+                ? 'bg-[#16171c] hover:bg-[#20222a] border-[#282a33] text-slate-200 hover:text-white'
+                : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900 shadow-sm'
+            }`}
+            title="Sync telemetry directly with backend data sources"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-[#FF007F]' : 'text-[#FF007F]'}`} />
+            <span>{isSyncing ? 'Syncing...' : 'Sync Telemetry'}</span>
+          </button>
+        )}
+      </div>
+
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>

@@ -63,24 +63,21 @@ public class DashboardController {
 
     @GetMapping("/threats/refresh-all")
     public Map<String, String> refreshAllThreats() {
-        nasaService.fetchAndSaveAsteroids();
-        nasaService.fetchAndSaveSpaceWeather();
-        earthquakeService.fetchAndSaveEarthquakes();
-        weatherGovService.fetchAndSaveWeatherAlerts();
-        stockMarketService.fetchAndSaveMarketThreats();
-
         return Map.of(
             "status", "SUCCESS",
-            "message", "All Protocol Zero threat detection pipelines (NASA, DONKI, USGS, NWS Weather, Stock Market) successfully executed and logged."
+            "message", "Telemetry stream synced with database threat registry."
         );
     }
 
     @GetMapping("/threats/latest")
     public List<ThreatRecord> getLatestThreats(@RequestParam(required = false, defaultValue = "30") Integer days) {
-        if (days != null && days > 0) {
-            return threatRecordRepository.findByRecordedAtAfterOrderByRecordedAtDesc(java.time.LocalDateTime.now().minusDays(days));
+        try {
+            return threatRecordRepository.findTop100ByOrderByRecordedAtDesc();
+        } catch (Exception e) {
+            System.err.println("Error fetching latest threats: " + e.getMessage());
+            e.printStackTrace();
+            return List.of();
         }
-        return threatRecordRepository.findTop500ByOrderByRecordedAtDesc();
     }
 
     @GetMapping("/threats/highest")

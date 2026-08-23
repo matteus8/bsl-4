@@ -1,22 +1,18 @@
 'use client';
 
 import React from 'react';
-import { MapPin, RefreshCw, Wine, Sun, Moon } from 'lucide-react';
+import { MapPin, Wine, Sun, Moon } from 'lucide-react';
 import { UserLocation } from '@/types/threats';
 
 interface HeaderProps {
   userLocation: UserLocation;
   setUserLocation: (loc: UserLocation) => void;
-  onRefresh: () => void;
-  isRefreshing: boolean;
   isDark: boolean;
   toggleTheme: () => void;
 }
 
 export default function Header({
   userLocation,
-  onRefresh,
-  isRefreshing,
   isDark,
   toggleTheme,
 }: HeaderProps) {
@@ -47,7 +43,7 @@ export default function Header({
           </div>
         </div>
 
-        {/* Controls: Active Location Badge, Theme Toggle, Refresh */}
+        {/* Controls: Active Location Badge, Theme Toggle */}
         <div className="flex items-center gap-2.5 sm:gap-3">
           {/* Active location indicator */}
           {userLocation.cityName && (
@@ -72,21 +68,6 @@ export default function Header({
             title={isDark ? 'Switch to Bright/Light Theme' : 'Switch to Dark Theme'}
           >
             {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4 text-slate-700" />}
-          </button>
-
-          {/* Refresh Button */}
-          <button
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-xs font-semibold transition disabled:opacity-50 ${
-              isDark
-                ? 'bg-[#16171c] hover:bg-[#20222a] border-[#282a33] text-slate-300 hover:text-white'
-                : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900'
-            }`}
-            title="Refresh telemetry"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#FF007F]' : ''}`} />
-            <span className="hidden sm:inline">Sync</span>
           </button>
         </div>
       </div>
