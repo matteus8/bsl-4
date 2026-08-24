@@ -2,16 +2,21 @@
 
 import React, { useMemo } from 'react';
 import { ThreatRecord } from '@/types/threats';
-import { ShieldCheck, ShieldAlert, Sparkles, Activity, Orbit, TrendingDown } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Sparkles, Activity, Orbit, TrendingDown, Loader2 } from 'lucide-react';
 
 interface AIVerdictBannerProps {
   threats: ThreatRecord[];
+  loading?: boolean;
   isDark?: boolean;
 }
 
-export default function AIVerdictBanner({ threats, isDark = true }: AIVerdictBannerProps) {
+export default function AIVerdictBanner({ threats, loading = false, isDark = true }: AIVerdictBannerProps) {
   // Dynamically calculate the Global Panic Index & Verdict Narrative
   const verdict = useMemo(() => {
+    if (threats.length === 0) {
+      return null;
+    }
+
     let maxQuakeMag = 0;
     let nearestQuakeKm = 999999;
     let closestAsteroidMissKm = 99999999;
@@ -52,7 +57,8 @@ export default function AIVerdictBanner({ threats, isDark = true }: AIVerdictBan
     // Compute composite panic index (1.0 to 10.0 scale)
     let panicScore = 1.8;
     if (maxQuakeMag >= 7.0) panicScore += 1.5;
-    else if (maxQuakeMag >= 5.5) panicScore += 0.6;
+    else if (maxQuakeMag >= 5.5) panicScore += 0.8;
+    else if (maxQuakeMag >= 4.5) panicScore += 0.3;
 
     if (highestSolarClass.includes('X-Class')) panicScore += 1.2;
     else if (highestSolarClass.includes('M-Class')) panicScore += 0.4;
@@ -79,7 +85,7 @@ export default function AIVerdictBanner({ threats, isDark = true }: AIVerdictBan
     if (nearestQuakeKm > 1000) {
       narrative += `and tectonic plates near you are asleep. You're fine.`;
     } else {
-      narrative += `and seismic sensors show nominal background tremors. You're completely safe.`;
+      narrative += `and seismic sensors show nominal background tremors. You're fine.`;
     }
 
     const isSafe = panicScore < 4.0;
@@ -95,6 +101,85 @@ export default function AIVerdictBanner({ threats, isDark = true }: AIVerdictBan
       marketVolatilitySpike,
     };
   }, [threats]);
+
+  // Loading skeleton state to prevent 1.8 flash on initial page load / refresh
+  if (loading || !verdict) {
+    return (
+      <section className={`border rounded-2xl p-5 sm:p-6 relative overflow-hidden transition-colors shadow-sm ${
+        isDark 
+          ? 'bg-[#16171c] border-[#282a33]' 
+          : 'bg-white border-slate-200'
+      }`}>
+        <div className="absolute top-0 right-0 w-80 h-80 bg-[#FF007F]/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+          {/* Left: Loading Skeleton */}
+          <div className="space-y-3 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md bg-[#FF007F]/10 text-[#FF007F] border border-[#FF007F]/25 flex items-center gap-1.5 font-mono">
+                <Sparkles className="w-3.5 h-3.5" />
+                1. THE AI VERDICT
+              </span>
+              <span className="text-[11px] font-mono text-cyan-400 font-semibold flex items-center gap-1.5">
+                <Loader2 className="w-3 h-3 animate-spin text-cyan-400" />
+                SYNTHESIZING TELEMETRY...
+              </span>
+            </div>
+
+            <div className="space-y-2 py-1">
+              <div className={`h-5 w-11/12 rounded-md animate-pulse ${isDark ? 'bg-[#21242e]' : 'bg-slate-200'}`} />
+              <div className={`h-4 w-3/4 rounded-md animate-pulse ${isDark ? 'bg-[#1a1d26]' : 'bg-slate-100'}`} />
+            </div>
+
+            {/* Skeleton Chips */}
+            <div className="flex flex-wrap items-center gap-2 pt-1 font-mono text-[11px]">
+              <div className={`px-2.5 py-1 rounded-lg border flex items-center gap-1.5 animate-pulse ${
+                isDark ? 'bg-[#101114] border-[#282a33] text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-400'
+              }`}>
+                <Activity className="w-3 h-3 text-slate-500" />
+                <span>Tectonics: Ingesting...</span>
+              </div>
+              <div className={`px-2.5 py-1 rounded-lg border flex items-center gap-1.5 animate-pulse ${
+                isDark ? 'bg-[#101114] border-[#282a33] text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-400'
+              }`}>
+                <Orbit className="w-3 h-3 text-slate-500" />
+                <span>Orbit: Ingesting...</span>
+              </div>
+              <div className={`px-2.5 py-1 rounded-lg border flex items-center gap-1.5 animate-pulse ${
+                isDark ? 'bg-[#101114] border-[#282a33] text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-400'
+              }`}>
+                <TrendingDown className="w-3 h-3 text-slate-500" />
+                <span>Macro: Ingesting...</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Score Gauge Skeleton */}
+          <div className={`p-4 rounded-xl border flex items-center gap-4 shrink-0 min-w-[190px] ${
+            isDark ? 'bg-[#101114] border-[#282a33]' : 'bg-slate-50 border-slate-200'
+          }`}>
+            <div className="p-3 rounded-full bg-[#FF007F]/10 border border-[#FF007F]/20 text-[#FF007F] animate-pulse">
+              <Sparkles className="w-7 h-7 text-[#FF007F]" />
+            </div>
+            <div>
+              <span className="text-[10px] font-mono uppercase font-bold text-slate-500 block">
+                GLOBAL PANIC INDEX
+              </span>
+              <div className="flex items-baseline gap-1 font-mono">
+                <span className="text-2xl font-black text-slate-500 animate-pulse">
+                  --.-
+                </span>
+                <span className="text-xs text-slate-600 font-semibold">/ 10</span>
+              </div>
+              <span className="text-[10px] font-mono text-cyan-400 font-medium">
+                STATUS: COMPUTING
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className={`border rounded-2xl p-5 sm:p-6 relative overflow-hidden transition-colors shadow-sm ${

@@ -175,6 +175,7 @@ export default function Dashboard() {
         {/* ================================================================ */}
         <AIVerdictBanner
           threats={enrichedThreats}
+          loading={loading}
           isDark={isDark}
         />
 
