@@ -4,34 +4,68 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'unde
 
 export async function fetchLatestThreats(): Promise<ThreatRecord[]> {
   try {
+    // 1. Try S3 edge JSON snapshot first
+    const res = await fetch(`${API_BASE_URL}/data/threats.json`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch {
+    // Try backend fallback
+  }
+
+  try {
+    // 2. Try backend API endpoint
     const res = await fetch(`${API_BASE_URL}/api/threats/latest`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       cache: 'no-store'
     });
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
-  } catch (err) {
-    console.warn('Backend unavailable, using simulated threat telemetry fallback:', err);
-    return getFallbackThreats();
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch {
+    // Fallback below
   }
+
+  return getFallbackThreats();
 }
 
 export async function fetchNearbyThreats(lat: number, lon: number, days = 30): Promise<ThreatRecord[]> {
+  try {
+    // 1. Try S3 edge JSON snapshot first
+    const res = await fetch(`${API_BASE_URL}/data/threats.json`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch {
+    // Fallback to backend nearby query
+  }
+
   try {
     const res = await fetch(`${API_BASE_URL}/api/threats/nearby?lat=${lat}&lon=${lon}&days=${days}&physicalLimit=70&globalLimit=30`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       cache: 'no-store'
     });
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
-  } catch (err) {
-    console.warn('Backend nearby query unavailable, using fallback/client data:', err);
-    return fetchLatestThreats();
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch {
+    // Fallback
   }
+  return fetchLatestThreats();
 }
 
 export interface EditorialVerdictResponse {
@@ -40,24 +74,47 @@ export interface EditorialVerdictResponse {
   panicIndex?: number;
   statusLevel?: string;
   summaryNarrative?: string;
+  keyFactors?: string[];
+  modelUsed?: string;
+  updatedAt?: string;
   createdAt?: string;
 }
 
 export async function fetchLatestEditorialVerdict(): Promise<EditorialVerdictResponse | null> {
+  // 1. Try S3 edge snapshot first (100% secure, zero database credentials needed)
+  try {
+    const res = await fetch(`${API_BASE_URL}/data/editorial-verdict.json`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && typeof data.panicIndex === 'number' && data.verdictText) {
+        return data;
+      }
+    }
+  } catch {
+    // S3 edge file not yet published or local
+  }
+
+  // 2. Try backend API endpoint
   try {
     const res = await fetch(`${API_BASE_URL}/api/threats/editorial/latest`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       cache: 'no-store'
     });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data && typeof data.panicIndex === 'number' && data.verdictText) {
-      return data;
+    if (res.ok) {
+      const data = await res.json();
+      if (data && typeof data.panicIndex === 'number' && data.verdictText) {
+        return data;
+      }
     }
   } catch {
-    // Graceful fallback to client calculation
+    // Fallback
   }
+
   return null;
 }
 

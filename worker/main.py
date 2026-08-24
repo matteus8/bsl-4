@@ -485,6 +485,35 @@ def persist_records(records):
     return inserted
 
 
+def publish_threats_snapshot_to_s3(records):
+    """Publish threats snapshot to S3 edge file for zero-credential frontend consumption."""
+    bucket_name = os.environ.get("S3_BUCKET_NAME", "platformstaq.com")
+    try:
+        s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+        formatted = []
+        for idx, r in enumerate(records):
+            formatted.append({
+                "id": idx + 1,
+                "threatType": r["threat_type"],
+                "title": r["title"],
+                "severityScore": float(r["severity_score"]),
+                "description": r["description"],
+                "metadata": json.dumps(r["metadata"]) if isinstance(r["metadata"], dict) else str(r["metadata"]),
+                "recordedAt": r["recorded_at"]
+            })
+        for key_path in ["data/threats.json", "api/threats.json"]:
+            s3.put_object(
+                Bucket=bucket_name,
+                Key=key_path,
+                Body=json.dumps(formatted, indent=2).encode("utf-8"),
+                ContentType="application/json",
+                CacheControl="public, max-age=60, s-maxage=300"
+            )
+        logger.info(f">>> Published s3://{bucket_name}/data/threats.json ({len(formatted)} records)")
+    except Exception as e:
+        logger.warning(f"Could not publish threats.json to S3: {e}")
+
+
 # --- LAMBDA HANDLER ENTRYPOINT ---
 
 def lambda_handler(event, context):
@@ -499,6 +528,7 @@ def lambda_handler(event, context):
     all_records.extend(fetch_global_markets())
     
     total_saved = persist_records(all_records)
+    publish_threats_snapshot_to_s3(all_records)
     
     logger.info(f">>> Ingestion completed. Total records saved/processed: {total_saved}")
     

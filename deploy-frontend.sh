@@ -33,7 +33,7 @@ echo ""
 echo "=================================================="
 echo "2. Syncing static assets to s3://${BUCKET_NAME}..."
 echo "=================================================="
-aws s3 sync frontend/out/ "s3://${BUCKET_NAME}" --delete
+aws s3 sync frontend/out/ "s3://${BUCKET_NAME}" --delete --exclude "api/*" --exclude "data/*"
 
 if [ -n "$DISTRIBUTION_ID" ]; then
   echo ""

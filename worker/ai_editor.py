@@ -375,6 +375,59 @@ def save_editorial_verdict(conn, verdict_data, evidence_summary, model_used):
     return verdict_id
 
 
+def publish_s3_snapshot(verdict_data, evidence_summary, model_used, evidence_list):
+    """Publish static JSON snapshot files to S3 so frontend can load them securely with zero credentials."""
+    bucket_name = os.environ.get("S3_BUCKET_NAME", "platformstaq.com")
+    try:
+        s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+        
+        # 1. Publish editorial-verdict.json to data/ and api/
+        verdict_payload = {
+            "id": verdict_data.get("id", 1),
+            "panicIndex": float(verdict_data.get("panic_index", 2.0)),
+            "statusLevel": str(verdict_data.get("status_level", "NOMINAL")),
+            "verdictText": str(verdict_data.get("verdict_text", "")),
+            "summaryNarrative": str(verdict_data.get("summary_narrative", "")),
+            "keyFactors": verdict_data.get("key_factors", []),
+            "modelUsed": str(model_used),
+            "updatedAt": datetime.now(timezone.utc).isoformat()
+        }
+        for key_path in ["data/editorial-verdict.json", "api/editorial-verdict.json"]:
+            s3.put_object(
+                Bucket=bucket_name,
+                Key=key_path,
+                Body=json.dumps(verdict_payload, indent=2).encode("utf-8"),
+                ContentType="application/json",
+                CacheControl="public, max-age=60, s-maxage=300"
+            )
+        logger.info(f">>> Published s3://{bucket_name}/data/editorial-verdict.json (Panic: {verdict_payload['panicIndex']})")
+
+        # 2. Publish threats.json snapshot to data/ and api/
+        threats_payload = []
+        for e in evidence_list:
+            threats_payload.append({
+                "id": e["id"],
+                "threatType": e["threat_type"],
+                "title": e["title"],
+                "severityScore": e["severity_score"],
+                "description": e["description"],
+                "metadata": json.dumps(e["metadata"]) if isinstance(e["metadata"], dict) else str(e["metadata"]),
+                "recordedAt": e["recorded_at"]
+            })
+
+        for key_path in ["data/threats.json", "api/threats.json"]:
+            s3.put_object(
+                Bucket=bucket_name,
+                Key=key_path,
+                Body=json.dumps(threats_payload, indent=2).encode("utf-8"),
+                ContentType="application/json",
+                CacheControl="public, max-age=60, s-maxage=300"
+            )
+        logger.info(f">>> Published s3://{bucket_name}/data/threats.json ({len(threats_payload)} records)")
+    except Exception as e:
+        logger.warning(f"Could not publish JSON snapshots to S3: {e}")
+
+
 def run_ai_editorial_pipeline():
     """Main execution orchestrator."""
     load_ssm_secrets()
@@ -402,6 +455,9 @@ def run_ai_editorial_pipeline():
         # 3. Persist into Supabase
         verdict_id = save_editorial_verdict(conn, verdict_data, evidence_summary, model_used)
         logger.info(f">>> Successfully persisted AI Editorial Verdict #{verdict_id}: '{verdict_data.get('verdict_text')}'")
+
+        # 4. Publish static edge JSON snapshot to S3 for secure frontend consumption
+        publish_s3_snapshot(verdict_data, evidence_summary, model_used, evidence)
 
         return {
             "status": "SUCCESS",
