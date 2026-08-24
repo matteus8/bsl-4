@@ -6,8 +6,7 @@ import {
   TrendingDown, 
   TrendingUp, 
   Flame, 
-  CheckCircle2,
-  ThumbsUp
+  CheckCircle2
 } from 'lucide-react';
 
 interface MacroNoiseSectionProps {
@@ -94,11 +93,6 @@ export default function MacroNoiseSection({
   isDark = true,
 }: MacroNoiseSectionProps) {
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'MARKETS' | 'SOCIAL'>('ALL');
-  const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
-
-  const toggleDebunkVote = (id: string) => {
-    setLikedPosts(prev => ({ ...prev, [id]: !prev[id] }));
-  };
 
   // Extract financial market threats from live ingested telemetry
   const marketThreats = useMemo(() => {
@@ -294,78 +288,58 @@ export default function MacroNoiseSection({
             </div>
 
             <div className="space-y-3">
-              {MOCK_SOCIAL_HYSTERIA.map((item) => {
-                const isLiked = !!likedPosts[item.id];
-
-                return (
-                  <div
-                    key={item.id}
-                    className={`p-4 rounded-xl border transition-all ${
-                      isDark ? 'bg-[#101114] border-[#282a33]' : 'bg-slate-50 border-slate-200'
-                    } space-y-2.5`}
-                  >
-                    {/* Top Row: Platform, Author, Reach, Hysteria Index */}
-                    <div className="flex items-center justify-between gap-2 text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
-                          item.platform === 'TikTok' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' :
-                          item.platform === 'Twitter/X' ? 'bg-slate-500/10 text-slate-200 border border-slate-500/20' :
-                          item.platform === 'YouTube' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
-                          'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                        }`}>
-                          {item.platform}
-                        </span>
-                        <span className="font-semibold text-slate-300 truncate max-w-[140px] sm:max-w-none">
-                          {item.author}
-                        </span>
-                        <span className="text-[10px] text-slate-500 font-mono">
-                          {item.handle} &bull; {item.reach}
-                        </span>
-                      </div>
-
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0">
-                        Hysteria {item.hysteriaLevel}/10
+              {MOCK_SOCIAL_HYSTERIA.map((item) => (
+                <div
+                  key={item.id}
+                  className={`p-4 rounded-xl border transition-all ${
+                    isDark ? 'bg-[#101114] border-[#282a33]' : 'bg-slate-50 border-slate-200'
+                  } space-y-2.5`}
+                >
+                  {/* Top Row: Platform, Author, Reach, Hysteria Index */}
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
+                        item.platform === 'TikTok' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' :
+                        item.platform === 'Twitter/X' ? 'bg-slate-500/10 text-slate-200 border border-slate-500/20' :
+                        item.platform === 'YouTube' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                        'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      }`}>
+                        {item.platform}
+                      </span>
+                      <span className="font-semibold text-slate-300 truncate max-w-[140px] sm:max-w-none">
+                        {item.author}
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        {item.handle} &bull; {item.reach} &bull; {item.timeAgo}
                       </span>
                     </div>
 
-                    {/* Viral Claim */}
-                    <div className="text-xs font-semibold text-rose-300 leading-snug">
-                      &ldquo;{item.claim}&rdquo;
-                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0">
+                      Hysteria {item.hysteriaLevel}/10
+                    </span>
+                  </div>
 
-                    {/* Physics Reality Check */}
-                    <div className={`p-3 rounded-lg border text-xs flex items-start gap-2.5 ${
-                      isDark ? 'bg-[#161821] border-[#2c3244] text-slate-200' : 'bg-white border-slate-200 text-slate-800'
-                    }`}>
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                      <div className="space-y-0.5">
-                        <span className="text-[10px] uppercase font-bold text-emerald-400 font-mono block">
-                          Physics & Sensor Reality Check:
-                        </span>
-                        <p className="text-[11px] leading-relaxed text-slate-300">
-                          {item.realityCheck}
-                        </p>
-                      </div>
-                    </div>
+                  {/* Viral Claim */}
+                  <div className="text-xs font-semibold text-rose-300 leading-snug">
+                    &ldquo;{item.claim}&rdquo;
+                  </div>
 
-                    {/* Footer Actions */}
-                    <div className="flex items-center justify-between pt-1 text-[11px] text-slate-500 font-mono">
-                      <span>Posted {item.timeAgo}</span>
-                      <button
-                        onClick={() => toggleDebunkVote(item.id)}
-                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] transition ${
-                          isLiked 
-                            ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 font-bold' 
-                            : 'hover:bg-[#1a1c24] border-[#282a33] text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        <ThumbsUp className="w-3 h-3" />
-                        <span>{isLiked ? 'Debunk Verified (+1)' : 'Confirm Debunk'}</span>
-                      </button>
+                  {/* Physics Reality Check */}
+                  <div className={`p-3 rounded-lg border text-xs flex items-start gap-2.5 ${
+                    isDark ? 'bg-[#161821] border-[#2c3244] text-slate-200' : 'bg-white border-slate-200 text-slate-800'
+                  }`}>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] uppercase font-bold text-emerald-400 font-mono block">
+                        Physics & Sensor Reality Check:
+                      </span>
+                      <p className="text-[11px] leading-relaxed text-slate-300">
+                        {item.realityCheck}
+                      </p>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           </div>
         )}

@@ -9,10 +9,10 @@ import OrbitalSpaceWatch from '@/components/OrbitalSpaceWatch';
 import MacroNoiseSection from '@/components/MacroNoiseSection';
 import EventTable from '@/components/ThreatCard';
 import EventDetailModal from '@/components/EventDetailModal';
-import { ThreatRecord, ThreatCategory, UserLocation, DateRangePreset } from '@/types/threats';
+import { ThreatRecord, ThreatCategory, UserLocation } from '@/types/threats';
 import { fetchNearbyThreats, triggerProtocolZeroRefresh } from '@/lib/api';
 import { calculateDistanceKm } from '@/lib/geo';
-import { Search, Compass, RefreshCw, Layers } from 'lucide-react';
+import { Search, Compass, Layers } from 'lucide-react';
 
 const CATEGORIES: { id: ThreatCategory; label: string }[] = [
   { id: 'ALL', label: 'All Hazards' },
@@ -30,9 +30,6 @@ export default function Dashboard() {
   const [selectedThreat, setSelectedThreat] = useState<ThreatRecord | null>(null);
   const [hoveredThreatId, setHoveredThreatId] = useState<number | string | null>(null);
   const [activeCategory, setActiveCategory] = useState<ThreatCategory>('ALL');
-  const [dateRangePreset, setDateRangePreset] = useState<DateRangePreset>('30D');
-  const [customStartDate, setCustomStartDate] = useState('');
-  const [customEndDate, setCustomEndDate] = useState('');
   const [sortBy, setSortBy] = useState<'NEWEST' | 'SEVERITY' | 'PROXIMITY' | 'OLDEST'>('PROXIMITY');
   const [searchQuery, setSearchQuery] = useState('');
   const [isDark, setIsDark] = useState(true);
@@ -111,28 +108,13 @@ export default function Dashboard() {
 
   // Filtered threats for the event table
   const filteredThreats = useMemo(() => {
-    const now = Date.now();
-
     const filtered = enrichedThreats.filter((t) => {
       // 1. Category filter
       if (activeCategory !== 'ALL' && t.threatType !== activeCategory) {
         return false;
       }
 
-      // 2. Date Range filter
-      const eventTime = new Date(t.recordedAt).getTime();
-      if (dateRangePreset === '24H') {
-        if (now - eventTime > 24 * 3600 * 1000) return false;
-      } else if (dateRangePreset === '7D') {
-        if (now - eventTime > 7 * 24 * 3600 * 1000) return false;
-      } else if (dateRangePreset === '30D') {
-        if (now - eventTime > 30 * 24 * 3600 * 1000) return false;
-      } else if (dateRangePreset === 'CUSTOM') {
-        if (customStartDate && eventTime < new Date(customStartDate).getTime()) return false;
-        if (customEndDate && eventTime > new Date(customEndDate).getTime() + 24 * 3600 * 1000) return false;
-      }
-
-      // 3. Search query
+      // 2. Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchTitle = t.title.toLowerCase().includes(q);
@@ -143,7 +125,7 @@ export default function Dashboard() {
       return true;
     });
 
-    // 4. Sorting
+    // 3. Sorting
     return filtered.sort((a, b) => {
       if (sortBy === 'SEVERITY') {
         return b.severityScore - a.severityScore;
@@ -160,7 +142,7 @@ export default function Dashboard() {
       // Default: NEWEST
       return new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime();
     });
-  }, [enrichedThreats, activeCategory, dateRangePreset, customStartDate, customEndDate, searchQuery, sortBy]);
+  }, [enrichedThreats, activeCategory, searchQuery, sortBy]);
 
   // Counts per category
   const categoryCounts = useMemo(() => {
@@ -233,32 +215,48 @@ export default function Dashboard() {
         />
 
         {/* ================================================================ */}
-        {/* DETAILED EVENT REGISTRY TABLE (Search, Filters, Full Archive)     */}
+        {/* RAW TELEMETRY REGISTRY (Search, Category Filters, Event Table)    */}
         {/* ================================================================ */}
         <div className="space-y-4 pt-4 border-t border-[#282a33]/60">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md bg-[#FF007F]/10 text-[#FF007F] border border-[#FF007F]/25 flex items-center gap-1.5 font-mono">
                 <Layers className="w-3.5 h-3.5" />
                 RAW TELEMETRY REGISTRY
               </span>
-              <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                Detailed Multi-Vector Sensor Log
-              </span>
             </div>
 
-            <button
-              onClick={handleSync}
-              disabled={isSyncing || loading}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-mono transition flex items-center gap-1.5 ${
-                isDark
-                  ? 'bg-[#16171c] hover:bg-[#20222a] border border-[#282a33] text-slate-200'
-                  : 'bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 shadow-sm'
-              }`}
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing || loading ? 'animate-spin text-[#FF007F]' : 'text-[#FF007F]'}`} />
-              <span>{isSyncing || loading ? 'Syncing...' : 'Sync Telemetry'}</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'NEWEST' | 'SEVERITY' | 'PROXIMITY' | 'OLDEST')}
+                className={`px-3 py-1.5 border rounded-lg text-xs focus:outline-none focus:border-[#FF007F] transition-colors font-mono ${
+                  isDark
+                    ? 'bg-[#101114] border-[#282a33] text-slate-200'
+                    : 'bg-slate-50 border-slate-200 text-slate-800'
+                }`}
+              >
+                <option value="PROXIMITY">Sort: Closest to You</option>
+                <option value="SEVERITY">Sort: Highest Severity</option>
+                <option value="NEWEST">Sort: Newest First</option>
+                <option value="OLDEST">Sort: Oldest First</option>
+              </select>
+
+              <div className="relative flex-1 sm:w-56">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search telemetry..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className={`w-full pl-8 pr-3 py-1.5 border rounded-lg text-xs focus:outline-none focus:border-[#FF007F] transition-colors ${
+                    isDark
+                      ? 'bg-[#101114] border-[#282a33] text-white placeholder-slate-500'
+                      : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400'
+                  }`}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Category Filter Buttons */}
@@ -292,105 +290,6 @@ export default function Dashboard() {
             })}
           </div>
 
-          {/* Date Filter Bar & Sort Controls */}
-          <div className={`p-3 rounded-xl border flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 ${
-            isDark ? 'bg-[#16171c] border-[#282a33]' : 'bg-white border-slate-200'
-          }`}>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">
-                Time Window:
-              </span>
-              {(
-                [
-                  { id: '24H', label: '24 Hours' },
-                  { id: '7D', label: '7 Days' },
-                  { id: '30D', label: '30 Days' },
-                  { id: 'ALL', label: 'All Time' },
-                  { id: 'CUSTOM', label: 'Custom' },
-                ] as const
-              ).map((preset) => {
-                const isSelected = dateRangePreset === preset.id;
-                return (
-                  <button
-                    key={preset.id}
-                    onClick={() => setDateRangePreset(preset.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                      isSelected
-                        ? 'bg-[#FF007F] text-white font-bold shadow-sm'
-                        : isDark
-                        ? 'bg-[#101114] text-slate-400 hover:text-slate-200 border border-[#282a33]'
-                        : 'bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200'
-                    }`}
-                  >
-                    {preset.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as 'NEWEST' | 'SEVERITY' | 'PROXIMITY' | 'OLDEST')}
-                className={`px-3 py-1.5 border rounded-lg text-xs focus:outline-none focus:border-[#FF007F] transition-colors ${
-                  isDark
-                    ? 'bg-[#101114] border-[#282a33] text-slate-200'
-                    : 'bg-slate-50 border-slate-200 text-slate-800'
-                }`}
-              >
-                <option value="PROXIMITY">Sort: Closest to You</option>
-                <option value="SEVERITY">Sort: Highest Severity</option>
-                <option value="NEWEST">Sort: Newest First</option>
-                <option value="OLDEST">Sort: Oldest First</option>
-              </select>
-
-              <div className="relative flex-1 md:w-56">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search telemetry..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`w-full pl-8 pr-3 py-1.5 border rounded-lg text-xs focus:outline-none focus:border-[#FF007F] transition-colors ${
-                    isDark
-                      ? 'bg-[#101114] border-[#282a33] text-white placeholder-slate-500'
-                      : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400'
-                  }`}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Custom Date Pickers (Shown if CUSTOM selected) */}
-          {dateRangePreset === 'CUSTOM' && (
-            <div className={`p-3 rounded-xl border flex flex-wrap items-center gap-3 text-xs ${
-              isDark ? 'bg-[#101114] border-[#282a33]' : 'bg-slate-50 border-slate-200'
-            }`}>
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400 font-medium">Start Date:</span>
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className={`px-2.5 py-1 rounded-lg border text-xs ${
-                    isDark ? 'bg-[#16171c] border-[#282a33] text-white' : 'bg-white border-slate-200 text-slate-900'
-                  }`}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400 font-medium">End Date:</span>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className={`px-2.5 py-1 rounded-lg border text-xs ${
-                    isDark ? 'bg-[#16171c] border-[#282a33] text-white' : 'bg-white border-slate-200 text-slate-900'
-                  }`}
-                />
-              </div>
-            </div>
-          )}
-
           {/* Event Table */}
           {filteredThreats.length > 0 ? (
             <EventTable
@@ -408,10 +307,10 @@ export default function Dashboard() {
             }`}>
               <Compass className="w-7 h-7 text-[#FF007F] mx-auto" />
               <h3 className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                No hazard events match this time filter or category
+                No hazard events match this category
               </h3>
               <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                Try expanding your time window to <strong>30 Days</strong> or selecting <strong>All Hazards</strong>.
+                Try selecting <strong>All Hazards</strong>.
               </p>
             </div>
           )}

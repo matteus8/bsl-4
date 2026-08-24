@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { ThreatRecord, ThreatCategory, UserLocation, GeocodedLocation, RegionalAssessment } from '@/types/threats';
-import { Globe, Layers, Search, Navigation, MapPin, Loader2, ShieldAlert, X } from 'lucide-react';
+import { Globe, Layers, Search, Navigation, MapPin, Loader2, X } from 'lucide-react';
 import { geoNaturalEarth1, geoPath } from 'd3-geo';
 import { feature } from 'topojson-client';
 import type { Topology } from 'topojson-specification';
@@ -38,8 +38,6 @@ export default function TacticalRadarMap({
   const [showDropdown, setShowDropdown] = useState(false);
   const [locatingDevice, setLocatingDevice] = useState(false);
   const [assessment, setAssessment] = useState<RegionalAssessment | null>(null);
-  const [loadingAssessment, setLoadingAssessment] = useState(false);
-  const [showAssessmentCard, setShowAssessmentCard] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
 
@@ -92,7 +90,6 @@ export default function TacticalRadarMap({
   useEffect(() => {
     let isCancelled = false;
     const fetchAssessment = async () => {
-      setLoadingAssessment(true);
       try {
         const data = await assessLocation({
           address: userLocation.cityName,
@@ -102,8 +99,8 @@ export default function TacticalRadarMap({
         if (!isCancelled && data) {
           setAssessment(data);
         }
-      } finally {
-        if (!isCancelled) setLoadingAssessment(false);
+      } catch {
+        // Fallback
       }
     };
 
@@ -386,50 +383,6 @@ export default function TacticalRadarMap({
               </div>
             )}
           </div>
-
-          {/* Compact Mini Amalgamated Situation Pill */}
-          {assessment && showAssessmentCard && (
-            <div className={`mt-2 p-2.5 rounded-xl border shadow-xl backdrop-blur-md text-xs transition-all ${
-              isDark 
-                ? 'bg-[#121316]/95 border-[#2e313d] text-slate-300' 
-                : 'bg-white/95 border-slate-200 text-slate-700'
-            }`}>
-              <div className="flex items-center justify-between gap-2 mb-1.5">
-                <div className="flex items-center gap-1.5 font-bold truncate">
-                  <ShieldAlert className="w-3.5 h-3.5 text-[#FF007F] shrink-0" />
-                  <span className="truncate">{assessment.locationName}</span>
-                  {loadingAssessment && (
-                    <Loader2 className="w-3 h-3 text-[#FF007F] animate-spin shrink-0" />
-                  )}
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-rose-500/15 text-rose-400 border border-rose-500/30">
-                    Risk {assessment.localSeverityScore.toFixed(1)}/10
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowAssessmentCard(false)}
-                    className="text-slate-400 hover:text-slate-200 p-0.5"
-                    title="Dismiss"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-
-              {assessment.weather && (
-                <div className="text-[11px] text-slate-400 mb-1.5">
-                  {assessment.weather.temperatureF.toFixed(0)}°F &bull; {assessment.weather.conditionText} &bull; Wind {assessment.weather.windSpeedMph.toFixed(0)}mph
-                </div>
-              )}
-
-              {assessment.situationSummary && (
-                <div className="text-[11px] text-slate-300 leading-snug line-clamp-2 pt-1 border-t border-[#282a33]/60">
-                  {assessment.situationSummary}
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Non-geospatial category banner */}
@@ -546,11 +499,6 @@ export default function TacticalRadarMap({
               </>
             ) : (
               <>Nearest earthquake is over 800 miles away.</>
-            )}{' '}
-            {assessment?.weather ? (
-              <>Local weather in <strong>{userLocation.cityName?.split(',')[0] || 'your area'}</strong> is <strong>{assessment.weather.temperatureF.toFixed(0)}°F</strong>, {assessment.weather.conditionText.toLowerCase()}.</>
-            ) : (
-              <>Local atmosphere is clear.</>
             )}{' '}
             <strong className="text-emerald-400">Ground status: Stable.</strong>
           </span>

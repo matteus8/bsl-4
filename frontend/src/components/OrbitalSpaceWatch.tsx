@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ThreatRecord } from '@/types/threats';
-import { Orbit, Flame, ShieldCheck } from 'lucide-react';
+import { Orbit, Flame, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface OrbitalSpaceWatchProps {
   threats: ThreatRecord[];
@@ -19,6 +19,9 @@ export default function OrbitalSpaceWatch({
   setHoveredThreatId,
   isDark = true,
 }: OrbitalSpaceWatchProps) {
+  const [showAllAsteroids, setShowAllAsteroids] = useState(false);
+  const [showAllSolar, setShowAllSolar] = useState(false);
+
   // Filter for orbital & solar threats
   const orbitalEvents = useMemo(() => {
     return threats.filter(
@@ -26,8 +29,32 @@ export default function OrbitalSpaceWatch({
     );
   }, [threats]);
 
-  const asteroidEvents = useMemo(() => orbitalEvents.filter((t) => t.threatType === 'ASTEROID'), [orbitalEvents]);
-  const spaceWeatherEvents = useMemo(() => orbitalEvents.filter((t) => t.threatType === 'SPACE_WEATHER'), [orbitalEvents]);
+  // Sort asteroids by closest miss distance (nearest approaches first)
+  const asteroidEvents = useMemo(() => {
+    return orbitalEvents
+      .filter((t) => t.threatType === 'ASTEROID')
+      .sort((a, b) => {
+        let metaA: Record<string, unknown> = {};
+        let metaB: Record<string, unknown> = {};
+        try { metaA = typeof a.metadata === 'string' ? JSON.parse(a.metadata) : ((a.metadata as unknown as Record<string, unknown>) || {}); } catch { metaA = {}; }
+        try { metaB = typeof b.metadata === 'string' ? JSON.parse(b.metadata) : ((b.metadata as unknown as Record<string, unknown>) || {}); } catch { metaB = {}; }
+        
+        const missA = typeof metaA.miss_distance_km === 'number' ? metaA.miss_distance_km : 999999999;
+        const missB = typeof metaB.miss_distance_km === 'number' ? metaB.miss_distance_km : 999999999;
+        if (missA !== missB) return missA - missB;
+        return b.severityScore - a.severityScore;
+      });
+  }, [orbitalEvents]);
+
+  // Sort space weather by newest date / highest severity
+  const spaceWeatherEvents = useMemo(() => {
+    return orbitalEvents
+      .filter((t) => t.threatType === 'SPACE_WEATHER')
+      .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
+  }, [orbitalEvents]);
+
+  const displayedAsteroids = showAllAsteroids ? asteroidEvents : asteroidEvents.slice(0, 4);
+  const displayedSolar = showAllSolar ? spaceWeatherEvents : spaceWeatherEvents.slice(0, 4);
 
   const getAsteroidWittyVerdict = (threat: ThreatRecord) => {
     let meta: Record<string, unknown> = {};
@@ -42,12 +69,12 @@ export default function OrbitalSpaceWatch({
     const width = typeof meta.max_width_meters === 'number' ? meta.max_width_meters : 120;
     
     if (isHazardous) {
-      return 'Classified potentially hazardous by orbit, but passing millions of kilometers away. Zero atmospheric entry trajectory.';
+      return 'Classified potentially hazardous by orbital path, but passing millions of km away. Zero atmospheric entry trajectory.';
     }
     if (width > 500) {
       return `Passed at comfortable planetary distance (~4M+ km). Dinosaurs would have been jealous. Dinosaurs safe.`;
     }
-    return `Passed harmlessly outside the lunar orbit. Less gravitational effect than a passing cloud.`;
+    return `Passed harmlessly outside lunar orbit. Less gravitational effect than a passing cloud.`;
   };
 
   const getSpaceWeatherWittyVerdict = (threat: ThreatRecord) => {
@@ -100,27 +127,27 @@ export default function OrbitalSpaceWatch({
           <span className={`px-2 py-0.5 rounded-full text-[10px] ${
             isDark ? 'bg-[#1a1d27] text-purple-300 border border-purple-500/20' : 'bg-purple-100 text-purple-700'
           }`}>
-            {orbitalEvents.length} Tracked
+            {orbitalEvents.length} Total Logged
           </span>
         </div>
       </div>
 
       {/* 2-Column Grid: Asteroids (Left) & Solar Weather (Right) */}
-      <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-4 pt-4">
+      <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-5 pt-4">
         {/* Column 1: Near-Earth Asteroid Feed */}
         <div className="space-y-3">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2 text-xs font-bold font-mono uppercase tracking-wider text-purple-400">
               <Orbit className="w-4 h-4" />
-              <span>NASA NeoWs Asteroid Flybys</span>
+              <span>NASA NeoWs Asteroid Approaches</span>
             </div>
-            <span className="text-[10px] font-mono text-slate-500">
-              {asteroidEvents.length} Recorded in 30D Window
+            <span className="text-[10px] font-mono text-slate-400">
+              Ranked by Closest Flyby ({displayedAsteroids.length} of {asteroidEvents.length})
             </span>
           </div>
 
           <div className="space-y-2.5">
-            {asteroidEvents.slice(0, 4).map((threat) => {
+            {displayedAsteroids.map((threat, idx) => {
               const isHovered = hoveredThreatId === (threat.id || threat.title);
               let meta: Record<string, unknown> = {};
               try {
@@ -131,12 +158,14 @@ export default function OrbitalSpaceWatch({
               }
 
               const width = typeof meta.max_width_meters === 'number' ? meta.max_width_meters.toFixed(0) : '120';
+              const missKm = typeof meta.miss_distance_km === 'number' ? (meta.miss_distance_km / 1000000).toFixed(1) : '4.2';
+              const lunarDist = typeof meta.miss_distance_km === 'number' ? (meta.miss_distance_km / 384400).toFixed(1) : '10.9';
               const isHazard = meta.is_hazardous === true;
               const verdictText = getAsteroidWittyVerdict(threat);
 
               return (
                 <div
-                  key={threat.id || threat.title}
+                  key={threat.id || threat.title || idx}
                   onClick={() => onSelectThreat(threat)}
                   onMouseEnter={() => setHoveredThreatId?.(threat.id || threat.title)}
                   onMouseLeave={() => setHoveredThreatId?.(null)}
@@ -148,8 +177,8 @@ export default function OrbitalSpaceWatch({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="p-1.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                        <Orbit className="w-3.5 h-3.5" />
+                      <span className="p-1.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono text-[10px] font-bold">
+                        #{idx + 1}
                       </span>
                       <div>
                         <div className="font-bold text-xs flex items-center gap-1.5">
@@ -160,8 +189,8 @@ export default function OrbitalSpaceWatch({
                             </span>
                           )}
                         </div>
-                        <div className="text-[10px] font-mono text-slate-400">
-                          Estimated Size: <strong className="text-purple-300">{width} meters</strong> &bull; Close Flyby
+                        <div className="text-[10px] font-mono text-slate-400 mt-0.5">
+                          Miss Distance: <strong className="text-purple-300">{missKm}M km ({lunarDist}x Lunar)</strong> &bull; Size: ~{width}m
                         </div>
                       </div>
                     </div>
@@ -181,11 +210,34 @@ export default function OrbitalSpaceWatch({
               );
             })}
 
+            {asteroidEvents.length > 4 && (
+              <button
+                onClick={() => setShowAllAsteroids(!showAllAsteroids)}
+                className={`w-full py-2 px-3 rounded-lg border text-xs font-mono font-medium transition flex items-center justify-center gap-1.5 ${
+                  isDark
+                    ? 'bg-[#141620] hover:bg-[#1c1f2e] border-[#222736] text-purple-300'
+                    : 'bg-white hover:bg-slate-50 border-slate-200 text-purple-700 shadow-sm'
+                }`}
+              >
+                {showAllAsteroids ? (
+                  <>
+                    <ChevronUp className="w-3.5 h-3.5" />
+                    <span>Show Top 4 Approaches Only</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-3.5 h-3.5" />
+                    <span>View All {asteroidEvents.length} Ranked Asteroid Approaches</span>
+                  </>
+                )}
+              </button>
+            )}
+
             {asteroidEvents.length === 0 && (
               <div className={`p-6 rounded-xl border text-center font-mono text-xs ${
                 isDark ? 'bg-[#12141c] border-[#222736] text-slate-400' : 'bg-white border-slate-200 text-slate-500'
               }`}>
-                No near-Earth asteroid approaches in current filter window.
+                No near-Earth asteroid approaches in current window.
               </div>
             )}
           </div>
@@ -198,19 +250,19 @@ export default function OrbitalSpaceWatch({
               <Flame className="w-4 h-4" />
               <span>NASA DONKI Solar & Space Weather</span>
             </div>
-            <span className="text-[10px] font-mono text-slate-500">
-              {spaceWeatherEvents.length} Recorded in 30D Window
+            <span className="text-[10px] font-mono text-slate-400">
+              Latest Solar Events ({displayedSolar.length} of {spaceWeatherEvents.length})
             </span>
           </div>
 
           <div className="space-y-2.5">
-            {spaceWeatherEvents.slice(0, 4).map((threat) => {
+            {displayedSolar.map((threat, idx) => {
               const isHovered = hoveredThreatId === (threat.id || threat.title);
               const verdictText = getSpaceWeatherWittyVerdict(threat);
 
               return (
                 <div
-                  key={threat.id || threat.title}
+                  key={threat.id || threat.title || idx}
                   onClick={() => onSelectThreat(threat)}
                   onMouseEnter={() => setHoveredThreatId?.(threat.id || threat.title)}
                   onMouseLeave={() => setHoveredThreatId?.(null)}
@@ -229,7 +281,7 @@ export default function OrbitalSpaceWatch({
                         <div className="font-bold text-xs">
                           {threat.title}
                         </div>
-                        <div className="text-[10px] font-mono text-slate-400">
+                        <div className="text-[10px] font-mono text-slate-400 mt-0.5">
                           {new Date(threat.recordedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} &bull; Solar Activity Stream
                         </div>
                       </div>
@@ -249,6 +301,29 @@ export default function OrbitalSpaceWatch({
                 </div>
               );
             })}
+
+            {spaceWeatherEvents.length > 4 && (
+              <button
+                onClick={() => setShowAllSolar(!showAllSolar)}
+                className={`w-full py-2 px-3 rounded-lg border text-xs font-mono font-medium transition flex items-center justify-center gap-1.5 ${
+                  isDark
+                    ? 'bg-[#141620] hover:bg-[#1c1f2e] border-[#222736] text-amber-300'
+                    : 'bg-white hover:bg-slate-50 border-slate-200 text-amber-700 shadow-sm'
+                }`}
+              >
+                {showAllSolar ? (
+                  <>
+                    <ChevronUp className="w-3.5 h-3.5" />
+                    <span>Show Recent 4 Only</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-3.5 h-3.5" />
+                    <span>View All {spaceWeatherEvents.length} Solar Events</span>
+                  </>
+                )}
+              </button>
+            )}
 
             {spaceWeatherEvents.length === 0 && (
               <div className={`p-6 rounded-xl border text-center font-mono text-xs ${

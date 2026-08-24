@@ -35,7 +35,7 @@ BSL-4 organizes planetary telemetry into four analytical domains:
 - **NASA NeoWs**: Near-Earth asteroid trajectory, miss distance, and hazard classifications.
 - **NOAA / Weather.gov**: Active severe convective weather, hurricane, tornado, and blizzard warnings.
 - **Yahoo Finance**: Real-time multi-market indices, volatility benchmarks, and safe-haven commodities.
-- **Open-Meteo & OpenStreetMap**: High-precision global geocoding and live regional atmospheric forecasts.
+- **Open-Meteo & OpenStreetMap**: High-precision global geocoding for pinpoint distance and proximity calculations.
 
 ---
 
