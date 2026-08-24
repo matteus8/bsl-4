@@ -43,6 +43,7 @@ out/
 response.json
 system-overview.md
 worker/build/
+worker/build_ai/
 worker/package/
 worker/*.zip
 *.log
