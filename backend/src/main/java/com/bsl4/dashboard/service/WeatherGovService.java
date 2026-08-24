@@ -16,12 +16,10 @@ public class WeatherGovService {
 
     private final RestClient restClient;
     private final ThreatRecordRepository threatRecordRepository;
-    private final CocktailService cocktailService;
 
-    public WeatherGovService(ThreatRecordRepository threatRecordRepository, CocktailService cocktailService,
+    public WeatherGovService(ThreatRecordRepository threatRecordRepository,
                              @Value("${weathergov.useragent:BSL4ProtocolZero/1.0 (contact@bsl4.com)}") String userAgent) {
         this.threatRecordRepository = threatRecordRepository;
-        this.cocktailService = cocktailService;
         this.restClient = RestClient.builder()
                 .baseUrl("https://api.weather.gov")
                 .defaultHeader("User-Agent", userAgent)
@@ -62,15 +60,14 @@ public class WeatherGovService {
                     String sentTime = (String) properties.get("sent");
 
                     double severity = calculateWeatherSeverity(severityStr, urgency, event);
-                    CocktailService.PrescribedDrink drink = cocktailService.prescribeDrink("TERRESTRIAL_WEATHER", severity);
 
                     String truncatedDesc = description != null && description.length() > 250 
                             ? description.substring(0, 250) + "..." 
                             : description;
 
                     String metadataJson = String.format(
-                        "{\"event\":\"%s\", \"nws_severity\":\"%s\", \"urgency\":\"%s\", \"area\":\"%s\", \"cocktail\": %s}",
-                        escapeJson(event), escapeJson(severityStr), escapeJson(urgency), escapeJson(areaDesc), drink.metadataJson()
+                        "{\"event\":\"%s\", \"nws_severity\":\"%s\", \"urgency\":\"%s\", \"area\":\"%s\"}",
+                        escapeJson(event), escapeJson(severityStr), escapeJson(urgency), escapeJson(areaDesc)
                     );
 
                     LocalDateTime recordedAt = sentTime != null 
@@ -82,7 +79,6 @@ public class WeatherGovService {
                         event != null ? event : "Atmospheric Threat",
                         severity,
                         headline != null ? headline : truncatedDesc,
-                        drink.name(),
                         metadataJson,
                         recordedAt
                     );

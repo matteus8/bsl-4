@@ -14,8 +14,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "BSL-4: Protocol Zero | Crisis Telemetry & Countermeasure Dispensary",
-  description: "Assess the threat. Pour the drink. Real-time disaster tracking and cocktail dispensary.",
+  title: "BSL-4: Protocol Zero | Global Hazard & Crisis Telemetry",
+  description: "Global planetary hazard and crisis telemetry dashboard monitoring earthquakes, space weather, asteroids, extreme weather, and market volatility.",
 };
 
 export default function RootLayout({

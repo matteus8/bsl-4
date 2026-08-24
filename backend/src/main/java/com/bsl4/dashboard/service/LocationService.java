@@ -12,11 +12,9 @@ public class LocationService {
 
     private final RestClient restClient;
     private final ThreatRecordRepository threatRecordRepository;
-    private final CocktailService cocktailService;
 
-    public LocationService(ThreatRecordRepository threatRecordRepository, CocktailService cocktailService) {
+    public LocationService(ThreatRecordRepository threatRecordRepository) {
         this.threatRecordRepository = threatRecordRepository;
-        this.cocktailService = cocktailService;
         this.restClient = RestClient.builder()
                 .defaultHeader("User-Agent", "BSL4-Telemetry/1.0")
                 .build();
@@ -57,9 +55,7 @@ public class LocationService {
             RegionalWeather weather,
             NearbySeismic nearbySeismic,
             double localSeverityScore,
-            String recommendedDrink,
-            String situationSummary,
-            Map<String, Object> cocktail
+            String situationSummary
     ) {}
 
     public List<GeocodedLocation> geocodeGlobalAddress(String query) {
@@ -161,7 +157,7 @@ public class LocationService {
         // Calculate nearest seismic event from recent database records
         NearbySeismic seismic = findNearestSeismic(lat, lon);
 
-        // Compute localized severity and cocktail recommendation
+        // Compute localized severity
         double severity = 2.0;
         if (weather != null) {
             if (weather.temperatureF() > 95.0 || weather.temperatureF() < 20.0) severity += 2.5;
@@ -173,11 +169,7 @@ public class LocationService {
         }
         severity = Math.min(10.0, Math.max(1.0, severity));
 
-        // Tailored drink selection
-        CocktailService.PrescribedDrink prescription = pickLocalDrink(weather, seismic, severity);
-        Map<String, Object> cocktailDetails = cocktailService.fetchCocktailFromApi(prescription.name());
-
-        String summary = generateSituationSummary(locationName, weather, seismic, prescription.name());
+        String summary = generateSituationSummary(locationName, weather, seismic);
 
         return new RegionalAssessment(
                 query,
@@ -189,9 +181,7 @@ public class LocationService {
                 weather,
                 seismic,
                 severity,
-                prescription.name(),
-                summary,
-                cocktailDetails
+                summary
         );
     }
 
@@ -280,46 +270,16 @@ public class LocationService {
         };
     }
 
-    private CocktailService.PrescribedDrink pickLocalDrink(RegionalWeather weather, NearbySeismic seismic, double severity) {
-        String drinkName = "Old Fashioned";
-        if (seismic != null && seismic.nearestDistanceKm() < 150.0 && seismic.magnitude() >= 4.5) {
-            drinkName = "Earthquake";
-        } else if (weather != null) {
-            if (weather.temperatureF() > 88.0) {
-                drinkName = "Mojito";
-            } else if (weather.temperatureF() < 35.0) {
-                drinkName = "Hot Toddy";
-            } else if (weather.conditionText().contains("Thunderstorm") || weather.conditionText().contains("Heavy Rain")) {
-                drinkName = "Dark 'n' Stormy";
-            }
-        } else if (severity >= 6.0) {
-            drinkName = "Manhattan";
-        }
-
-        Map<String, Object> recipe = cocktailService.fetchCocktailFromApi(drinkName);
-        if (recipe != null) {
-            String name = (String) recipe.get("strDrink");
-            String instructions = (String) recipe.get("strInstructions");
-            String glass = (String) recipe.get("strGlass");
-            String thumb = (String) recipe.get("strDrinkThumb");
-            List<String> ingredients = List.of("Spirit of choice", "Fresh Citrus / Sweetener", "Ice");
-            return new CocktailService.PrescribedDrink(name, instructions, glass, thumb, ingredients, "{}");
-        }
-
-        return new CocktailService.PrescribedDrink(drinkName, "Pour over ice and serve immediately.", "Cocktail glass", null, List.of("Spirit", "Ice"), "{}");
-    }
-
-    private String generateSituationSummary(String location, RegionalWeather weather, NearbySeismic seismic, String drink) {
+    private String generateSituationSummary(String location, RegionalWeather weather, NearbySeismic seismic) {
         StringBuilder sb = new StringBuilder();
         if (weather != null) {
             sb.append(String.format(Locale.US, "Currently %.0f°F with %s in %s. ", weather.temperatureF(), weather.conditionText().toLowerCase(), location));
         }
         if (seismic != null && seismic.nearestDistanceKm() < 500.0) {
-            sb.append(String.format(Locale.US, "Nearest seismic tremor is %.0f km away (M%.1f). ", seismic.nearestDistanceKm(), seismic.magnitude()));
+            sb.append(String.format(Locale.US, "Nearest seismic tremor is %.0f km away (M%.1f).", seismic.nearestDistanceKm(), seismic.magnitude()));
         } else {
-            sb.append("Seismic activity is calm. ");
+            sb.append("Seismic activity is calm.");
         }
-        sb.append(String.format("Curated pairing: %s.", drink));
         return sb.toString();
     }
 }

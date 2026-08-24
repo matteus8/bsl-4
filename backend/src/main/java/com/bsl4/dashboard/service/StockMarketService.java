@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -14,129 +15,143 @@ public class StockMarketService {
 
     private final RestClient restClient;
     private final ThreatRecordRepository threatRecordRepository;
-    private final CocktailService cocktailService;
 
-    public StockMarketService(ThreatRecordRepository threatRecordRepository, CocktailService cocktailService) {
+    private static final List<MarketConfig> GLOBAL_MARKETS = List.of(
+        new MarketConfig("^VIX", "CBOE Volatility Index (Fear Index)", "Americas", true),
+        new MarketConfig("^GSPC", "S&P 500 Index", "Americas", false),
+        new MarketConfig("^FTSE", "FTSE 100 London", "Europe", false),
+        new MarketConfig("^N225", "Nikkei 225 Tokyo", "Asia-Pacific", false),
+        new MarketConfig("^HSI", "Hang Seng Hong Kong", "Asia-Pacific", false),
+        new MarketConfig("GC=F", "Gold Futures (Safe Haven)", "Global Commodities", false),
+        new MarketConfig("BTC-USD", "Bitcoin (24/7 Digital Liquidity)", "Global Crypto", false)
+    );
+
+    public record MarketConfig(String symbol, String name, String region, boolean isVix) {}
+
+    public StockMarketService(ThreatRecordRepository threatRecordRepository) {
         this.threatRecordRepository = threatRecordRepository;
-        this.cocktailService = cocktailService;
         this.restClient = RestClient.builder()
-                .baseUrl("https://query1.finance.yahoo.com/v7/finance")
-                .defaultHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                .baseUrl("https://query1.finance.yahoo.com/v8/finance/chart")
+                .defaultHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36")
+                .defaultHeader("Accept", "application/json")
                 .build();
     }
 
     public void fetchAndSaveMarketThreats() {
-        try {
-            Map response = restClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/quote")
-                            .queryParam("symbols", "^VIX,^GSPC,BTC-USD")
-                            .build())
-                    .retrieve()
-                    .body(Map.class);
+        List<ThreatRecord> records = new ArrayList<>();
 
-            if (response != null && response.containsKey("quoteResponse")) {
-                Map<String, Object> quoteResponse = (Map<String, Object>) response.get("quoteResponse");
-                if (quoteResponse.containsKey("result")) {
-                    List<Map<String, Object>> results = (List<Map<String, Object>>) quoteResponse.get("result");
+        for (MarketConfig cfg : GLOBAL_MARKETS) {
+            try {
+                Map response = restClient.get()
+                        .uri("/{symbol}?interval=1d&range=1d", cfg.symbol())
+                        .retrieve()
+                        .body(Map.class);
 
-                    // Purge previous stock market records to keep only the latest snapshot
-                    threatRecordRepository.deleteByThreatType("STOCK_MARKET");
+                if (response != null && response.containsKey("chart")) {
+                    Map<String, Object> chart = (Map<String, Object>) response.get("chart");
+                    List<Map<String, Object>> resultList = (List<Map<String, Object>>) chart.get("result");
+                    if (resultList != null && !resultList.isEmpty()) {
+                        Map<String, Object> meta = (Map<String, Object>) resultList.get(0).get("meta");
 
-                    for (Map<String, Object> quote : results) {
-                        String symbol = (String) quote.get("symbol");
-                        String shortName = (String) quote.get("shortName");
-                        Number priceNum = (Number) quote.get("regularMarketPrice");
-                        Number changePctNum = (Number) quote.get("regularMarketChangePercent");
+                        Number priceNum = (Number) meta.get("regularMarketPrice");
+                        Number prevCloseNum = (Number) (meta.get("chartPreviousClose") != null 
+                                ? meta.get("chartPreviousClose") 
+                                : meta.get("previousClose"));
+                        Number dayHighNum = (Number) meta.get("regularMarketDayHigh");
+                        Number dayLowNum = (Number) meta.get("regularMarketDayLow");
+                        String currency = (String) meta.getOrDefault("currency", "USD");
 
                         double price = priceNum != null ? priceNum.doubleValue() : 0.0;
-                        double changePercent = changePctNum != null ? changePctNum.doubleValue() : 0.0;
+                        double prevClose = prevCloseNum != null ? prevCloseNum.doubleValue() : price;
+                        double changePercent = prevClose > 0 ? ((price - prevClose) / prevClose) * 100.0 : 0.0;
+                        double dayHigh = dayHighNum != null ? dayHighNum.doubleValue() : price;
+                        double dayLow = dayLowNum != null ? dayLowNum.doubleValue() : price;
 
-                        double severity = calculateMarketSeverity(symbol, price, changePercent);
-                        
-                        // Ignore minor noise if severity is low
-                        if (severity < 4.0) continue;
-
-                        CocktailService.PrescribedDrink drink = cocktailService.prescribeDrink("STOCK_MARKET", severity);
-
-                        String title = formatMarketTitle(symbol, shortName, price, changePercent);
-                        String description = String.format("%s (%s) telemetry: price $%.2f, single-day change %.2f%%", 
-                                shortName != null ? shortName : symbol, symbol, price, changePercent);
+                        double severity = calculateMarketSeverity(cfg.symbol(), price, changePercent, cfg.isVix());
+                        String title = formatMarketTitle(cfg.symbol(), cfg.name(), price, changePercent, cfg.isVix());
+                        String description = String.format("%s (%s) [%s]: Price %s %.2f, 24h change %+.2f%% (Range: %.2f - %.2f)",
+                                cfg.name(), cfg.symbol(), cfg.region(), currency, price, changePercent, dayLow, dayHigh);
 
                         String metadataJson = String.format(
-                            "{\"symbol\":\"%s\", \"price\":%.2f, \"change_percent\":%.2f, \"cocktail\": %s}",
-                            symbol, price, changePercent, drink.metadataJson()
+                            "{\"symbol\":\"%s\",\"name\":\"%s\",\"region\":\"%s\",\"price\":%.2f,\"change_percent\":%.2f,\"day_high\":%.2f,\"day_low\":%.2f,\"currency\":\"%s\"}",
+                            cfg.symbol(), cfg.name(), cfg.region(), price, changePercent, dayHigh, dayLow, currency
                         );
 
-                        ThreatRecord record = new ThreatRecord(
+                        records.add(new ThreatRecord(
                             "STOCK_MARKET",
                             title,
                             severity,
                             description,
-                            drink.name(),
                             metadataJson,
                             LocalDateTime.now()
-                        );
-
-                        threatRecordRepository.save(record);
+                        ));
                     }
-                    System.out.println(">>> Successfully fetched and saved financial market crisis threats!");
-                    return;
                 }
+            } catch (Exception e) {
+                System.err.println(">>> Notice fetching ticker " + cfg.symbol() + ": " + e.getMessage());
             }
-        } catch (Exception e) {
-            System.err.println(">>> Financial API fetch fallback triggered: " + e.getMessage());
         }
 
-        // Fallback simulation/ingestion if live financial quote endpoint is rate limited
-        generateFallbackMarketThreats();
+        if (!records.isEmpty()) {
+            threatRecordRepository.deleteByThreatType("STOCK_MARKET");
+            threatRecordRepository.saveAll(records);
+            System.out.println(">>> Successfully fetched and saved " + records.size() + " international financial market threats!");
+        } else {
+            generateFallbackMarketThreats();
+        }
     }
 
-    private double calculateMarketSeverity(String symbol, double price, double changePercent) {
-        if ("^VIX".equalsIgnoreCase(symbol)) {
-            // VIX Volatility Index
-            if (price >= 45.0) return 9.8;
-            if (price >= 35.0) return 8.5;
-            if (price >= 25.0) return 6.5;
-            if (price >= 20.0) return 5.0;
+    private double calculateMarketSeverity(String symbol, double price, double changePercent, boolean isVix) {
+        if (isVix) {
+            if (price >= 40.0) return 9.8;
+            if (price >= 30.0) return 8.5;
+            if (price >= 20.0) return 6.5;
+            if (price >= 15.0) return 4.5;
             return 3.0;
         }
 
-        // Drop percentages (negative change means market crash)
-        double drop = -changePercent; 
+        if ("BTC-USD".equalsIgnoreCase(symbol)) {
+            if (changePercent <= -8.0) return 9.2;
+            if (changePercent <= -4.0) return 7.5;
+            if (changePercent <= -2.0) return 5.5;
+            return 4.0;
+        }
+
+        if ("GC=F".equalsIgnoreCase(symbol)) {
+            if (changePercent >= 3.0) return 7.8; // Flight to safety spike
+            return 4.0;
+        }
+
+        // Equity indices drops
+        double drop = -changePercent;
         if (drop >= 5.0) return 9.5;
         if (drop >= 3.0) return 8.0;
         if (drop >= 1.5) return 6.0;
 
-        return 3.5;
+        return 4.0;
     }
 
-    private String formatMarketTitle(String symbol, String shortName, double price, double changePercent) {
-        if ("^VIX".equalsIgnoreCase(symbol)) {
+    private String formatMarketTitle(String symbol, String name, double price, double changePercent, boolean isVix) {
+        if (isVix) {
             return String.format("VIX Volatility Panic (%.1f)", price);
         }
-        return String.format("%s Market %s (%.2f%%)", 
-                shortName != null ? shortName : symbol, 
-                changePercent < 0 ? "Crash" : "Spike", 
-                changePercent);
+        return String.format("%s (%s %+.2f%%)", name, symbol, changePercent);
     }
 
     private void generateFallbackMarketThreats() {
-        double simulatedVix = 32.4;
-        double severity = calculateMarketSeverity("^VIX", simulatedVix, 12.5);
-        CocktailService.PrescribedDrink drink = cocktailService.prescribeDrink("STOCK_MARKET", severity);
+        double simulatedVix = 28.5;
+        double severity = calculateMarketSeverity("^VIX", simulatedVix, 8.4, true);
 
         String metadataJson = String.format(
-            "{\"symbol\":\"^VIX\", \"price\":%.2f, \"change_percent\":12.5, \"fallback\":true, \"cocktail\": %s}",
-            simulatedVix, drink.metadataJson()
+            "{\"symbol\":\"^VIX\",\"name\":\"CBOE Volatility Index\",\"region\":\"Americas\",\"price\":%.2f,\"change_percent\":8.40,\"fallback\":true}",
+            simulatedVix
         );
 
         ThreatRecord record = new ThreatRecord(
             "STOCK_MARKET",
-            "VIX Volatility Panic (32.4)",
+            "VIX Volatility Panic (28.5)",
             severity,
-            "CBOE Volatility Index spiked to 32.4 (+12.5%). Financial market turmoil detected.",
-            drink.name(),
+            "CBOE Volatility Index tracking elevated market anxiety and defensive hedging across global liquidity pools.",
             metadataJson,
             LocalDateTime.now()
         );

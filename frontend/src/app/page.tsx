@@ -5,7 +5,6 @@ import Header from '@/components/Header';
 import TacticalRadarMap from '@/components/TacticalRadarMap';
 import EventTable from '@/components/ThreatCard';
 import EventDetailModal from '@/components/EventDetailModal';
-import CocktailModal, { AmalgamatedCountermeasureData } from '@/components/CocktailModal';
 import { ThreatRecord, ThreatCategory, UserLocation, DateRangePreset } from '@/types/threats';
 import { fetchNearbyThreats, triggerProtocolZeroRefresh } from '@/lib/api';
 import { calculateDistanceKm } from '@/lib/geo';
@@ -25,7 +24,6 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [selectedThreat, setSelectedThreat] = useState<ThreatRecord | null>(null);
-  const [amalgamatedDrink, setAmalgamatedDrink] = useState<AmalgamatedCountermeasureData | null>(null);
   const [hoveredThreatId, setHoveredThreatId] = useState<number | string | null>(null);
   const [activeCategory, setActiveCategory] = useState<ThreatCategory>('ALL');
   const [dateRangePreset, setDateRangePreset] = useState<DateRangePreset>('7D');
@@ -214,16 +212,6 @@ export default function Dashboard() {
           userLocation={userLocation}
           setUserLocation={setUserLocation}
           onSelectThreat={(t) => setSelectedThreat(t)}
-          onOpenCocktail={(cocktailData, title, drinkName, severity) => {
-            setAmalgamatedDrink({
-              title,
-              drinkName,
-              severity,
-              locationName: userLocation.cityName || 'Your Location',
-              summary: `Amalgamated situation protocol synthesized for ${userLocation.cityName || 'Selected Coordinates'}.`,
-              cocktailData,
-            });
-          }}
           hoveredThreatId={hoveredThreatId}
           setHoveredThreatId={setHoveredThreatId}
           activeCategory={activeCategory}
@@ -503,16 +491,10 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* 1. Pure Hazard Telemetry Modal for Event Inspect (NO DRINKS) */}
+      {/* Hazard Telemetry Modal for Event Inspect */}
       <EventDetailModal
         threat={selectedThreat}
         onClose={() => setSelectedThreat(null)}
-      />
-
-      {/* 2. Amalgamated Location Countermeasure Modal (ONLY from Pour Drink button) */}
-      <CocktailModal
-        data={amalgamatedDrink}
-        onClose={() => setAmalgamatedDrink(null)}
       />
 
       {/* Minimal Footer */}
@@ -520,9 +502,10 @@ export default function Dashboard() {
         isDark ? 'border-[#282a33] text-slate-500' : 'border-slate-200 text-slate-500 bg-white'
       }`}>
         <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div>BSL-4 &bull; Global Threat Telemetry &bull; Ingested server-side</div>
-          <div className="text-[#FF007F] font-medium">
-            Assess the threat. Pour the drink.
+          <div>BSL-4 &bull; Global Planetary Hazard & Crisis Telemetry</div>
+          <div className="text-emerald-400 font-mono font-medium flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            DEFCON PROTOCOL ZERO ACTIVE
           </div>
         </div>
       </footer>

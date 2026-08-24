@@ -25,7 +25,7 @@ public interface ThreatRecordRepository extends JpaRepository<ThreatRecord, Long
     void deleteByThreatType(@Param("threatType") String threatType);
 
     @Query(value = """
-        SELECT id, threat_type, title, severity_score, description, recommended_drink, metadata, recorded_at
+        SELECT id, threat_type, title, severity_score, description, metadata, recorded_at
         FROM threat_records
         WHERE threat_type IN ('EARTHQUAKE', 'TERRESTRIAL_WEATHER')
           AND recorded_at >= :afterDate
@@ -49,7 +49,7 @@ public interface ThreatRecordRepository extends JpaRepository<ThreatRecord, Long
     );
 
     @Query(value = """
-        SELECT id, threat_type, title, severity_score, description, recommended_drink, metadata, recorded_at
+        SELECT id, threat_type, title, severity_score, description, metadata, recorded_at
         FROM threat_records
         WHERE threat_type IN ('SPACE_WEATHER', 'ASTEROID', 'STOCK_MARKET')
           AND recorded_at >= :afterDate

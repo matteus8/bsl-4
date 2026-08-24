@@ -85,157 +85,13 @@ def get_db_connection():
 
 def http_get_json(url, headers=None):
     """Utility to perform HTTP GET and return parsed JSON."""
-    req_headers = {"User-Agent": "BSL4ProtocolZero/1.0", "Accept": "application/json"}
+    req_headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36", "Accept": "application/json"}
     if headers:
         req_headers.update(headers)
     
     req = urllib.request.Request(url, headers=req_headers)
     with urllib.request.urlopen(req, timeout=10) as response:
         return json.loads(response.read().decode("utf-8"))
-
-
-# Pre-cached cocktail recipes from TheCocktailDB for instant sub-millisecond execution
-COCKTAIL_REGISTRY = {
-    "Earthquake": {
-        "drink_name": "Earthquake",
-        "instructions": "Pour 1 oz Gin, 1 oz Bourbon, 1 oz Pernod into glass over cracked ice. Stir well.",
-        "glass": "Cocktail glass",
-        "thumb_url": "https://www.thecocktaildb.com/images/media/drink/brambl1541421443.jpg",
-        "ingredients": ["1 oz Gin", "1 oz Bourbon", "1 oz Pernod"]
-    },
-    "Zombie": {
-        "drink_name": "Zombie",
-        "instructions": "Blend all ingredients with crushed ice. Pour into highball glass and garnish with mint and fruit slice.",
-        "glass": "Hurricane glass",
-        "thumb_url": "https://www.thecocktaildb.com/images/media/drink/2x8thr1504816928.jpg",
-        "ingredients": ["1 1/2 oz Dark Rum", "1 1/2 oz Light Rum", "1 oz Gold Rum", "1/2 oz Triple Sec", "1 oz Lime Juice", "1 oz Pineapple Juice"]
-    },
-    "Hurricane": {
-        "drink_name": "Hurricane",
-        "instructions": "Shake dark rum, light rum, passion fruit syrup, orange juice, and lime juice with ice. Strain into hurricane glass.",
-        "glass": "Hurricane glass",
-        "thumb_url": "https://www.thecocktaildb.com/images/media/drink/quqyqp1480879103.jpg",
-        "ingredients": ["2 oz Dark Rum", "2 oz Light Rum", "1 oz Passion Fruit Syrup", "1 oz Orange Juice", "1/2 oz Lime Juice"]
-    },
-    "Manhattan": {
-        "drink_name": "Manhattan",
-        "instructions": "Stir bourbon, sweet vermouth, and bitters with ice. Strain into chilled cocktail glass and garnish with cherry.",
-        "glass": "Cocktail glass",
-        "thumb_url": "https://www.thecocktaildb.com/images/media/drink/yk70e31606771240.jpg",
-        "ingredients": ["2 oz Bourbon", "3/4 oz Sweet Vermouth", "2 dashes Angostura Bitters", "1 Maraschino Cherry"]
-    },
-    "Negroni": {
-        "drink_name": "Negroni",
-        "instructions": "Stir equal parts gin, Campari, and sweet vermouth into glass over ice. Garnish with orange peel.",
-        "glass": "Old-fashioned glass",
-        "thumb_url": "https://www.thecocktaildb.com/images/media/drink/qgdu971561574065.jpg",
-        "ingredients": ["1 oz Gin", "1 oz Campari", "1 oz Sweet Vermouth", "1 twist Orange Peel"]
-    },
-    "Kamikaze": {
-        "drink_name": "Kamikaze",
-        "instructions": "Shake vodka, triple sec, and lime juice with ice. Strain into cocktail glass.",
-        "glass": "Cocktail glass",
-        "thumb_url": "https://www.thecocktaildb.com/images/media/drink/d7ff7u1606855412.jpg",
-        "ingredients": ["1 oz Vodka", "1 oz Triple Sec", "1 oz Lime Juice"]
-    },
-    "Margarita": {
-        "drink_name": "Margarita",
-        "instructions": "Rub rim of glass with lime wedge, dip in salt. Shake tequila, triple sec, and lime juice with ice. Strain into glass.",
-        "glass": "Margarita glass",
-        "thumb_url": "https://www.thecocktaildb.com/images/media/drink/5noda61589575158.jpg",
-        "ingredients": ["2 oz Tequila", "1 oz Triple Sec", "1 oz Fresh Lime Juice", "Coarse Salt"]
-    },
-    "Tequila Sunrise": {
-        "drink_name": "Tequila Sunrise",
-        "instructions": "Pour tequila and orange juice into highball glass over ice. Slowly pour grenadine down inside of glass.",
-        "glass": "Highball glass",
-        "thumb_url": "https://www.thecocktaildb.com/images/media/drink/quqyqp1480879103.jpg",
-        "ingredients": ["2 oz Tequila", "4 oz Orange Juice", "1/2 oz Grenadine"]
-    },
-    "Dark and Stormy": {
-        "drink_name": "Dark and Stormy",
-        "instructions": "Fill highball glass with ice, add ginger beer, float dark rum on top. Garnish with lime wedge.",
-        "glass": "Highball glass",
-        "thumb_url": "https://www.thecocktaildb.com/images/media/drink/t1070g1606766050.jpg",
-        "ingredients": ["2 oz Dark Rum", "4 oz Ginger Beer", "1/2 oz Lime Juice"]
-    },
-    "Whiskey Sour": {
-        "drink_name": "Whiskey Sour",
-        "instructions": "Shake whiskey, lemon juice, and simple syrup with ice. Strain into rocks glass.",
-        "glass": "Old-fashioned glass",
-        "thumb_url": "https://www.thecocktaildb.com/images/media/drink/hbkfsh1589574990.jpg",
-        "ingredients": ["2 oz Bourbon", "3/4 oz Fresh Lemon Juice", "1/2 oz Simple Syrup"]
-    },
-    "Bloody Mary": {
-        "drink_name": "Bloody Mary",
-        "instructions": "Stir vodka, tomato juice, lemon juice, Worcestershire, Tabasco, salt, and pepper over ice.",
-        "glass": "Highball glass",
-        "thumb_url": "https://www.thecocktaildb.com/images/media/drink/t6caa21582485702.jpg",
-        "ingredients": ["1 1/2 oz Vodka", "3 oz Tomato Juice", "1 dash Worcestershire", "1 dash Tabasco"]
-    },
-    "Gin Tonic": {
-        "drink_name": "Gin Tonic",
-        "instructions": "Pour gin and tonic water into highball glass over ice cubes. Garnish with lime wedge.",
-        "glass": "Highball glass",
-        "thumb_url": "https://www.thecocktaildb.com/images/media/drink/qcgz0t1643821443.jpg",
-        "ingredients": ["2 oz Gin", "5 oz Tonic Water", "1 Lime Wedge"]
-    },
-    "Hot Toddy": {
-        "drink_name": "Hot Toddy",
-        "instructions": "Pour boiling water into mug, add whiskey, honey, and lemon juice. Stir until dissolved.",
-        "glass": "Irish coffee cup",
-        "thumb_url": "https://www.thecocktaildb.com/images/media/drink/yvvwys1461867858.jpg",
-        "ingredients": ["2 oz Whiskey", "1 tbsp Honey", "1/2 oz Lemon Juice", "1 cup Boiling Water"]
-    },
-    "Panic Button Martini": {
-        "drink_name": "Panic Button Martini",
-        "instructions": "Pour navy-strength gin and dry vermouth into mixing glass with ice. Stir vigorously and strain.",
-        "glass": "Martini glass",
-        "thumb_url": "https://www.thecocktaildb.com/images/media/drink/hbkfsh1589574990.jpg",
-        "ingredients": ["2 1/2 oz Navy Strength Gin", "1/2 oz Dry Vermouth", "2 dashes Orange Bitters"]
-    }
-}
-
-
-# --- COCKTAIL PRESCRIPTION ENGINE ---
-
-def prescribe_drink(threat_type: str, severity: float):
-    """Prescribes a situation-matched cocktail protocol in O(1) time."""
-    t_type = (threat_type or "GENERAL").upper()
-    
-    if severity >= 8.5:
-        if t_type in ("EARTHQUAKE", "ASTEROID"):
-            name = "Earthquake"
-        elif t_type == "TERRESTRIAL_WEATHER":
-            name = "Hurricane"
-        else:
-            name = "Zombie"
-    elif severity >= 6.0:
-        if t_type == "SPACE_WEATHER":
-            name = "Tequila Sunrise"
-        elif t_type == "ASTEROID":
-            name = "Kamikaze"
-        elif t_type == "EARTHQUAKE":
-            name = "Manhattan"
-        elif t_type == "TERRESTRIAL_WEATHER":
-            name = "Dark and Stormy"
-        else:
-            name = "Margarita"
-    elif severity >= 4.0:
-        if t_type == "SPACE_WEATHER":
-            name = "Margarita"
-        elif t_type == "ASTEROID":
-            name = "Whiskey Sour"
-        elif t_type == "EARTHQUAKE":
-            name = "Negroni"
-        elif t_type == "TERRESTRIAL_WEATHER":
-            name = "Bloody Mary"
-        else:
-            name = "Gin Tonic"
-    else:
-        name = "Hot Toddy"
-
-    return COCKTAIL_REGISTRY.get(name, COCKTAIL_REGISTRY["Hot Toddy"])
 
 
 # --- TELEMETRY INGESTION FEEDS ---
@@ -279,15 +135,13 @@ def fetch_earthquakes():
                 severity = min(severity + 1.5, 10.0)
             severity = min(round(severity, 2), 10.0)
             
-            cocktail = prescribe_drink("EARTHQUAKE", severity)
             metadata = {
                 "magnitude": mag,
                 "place": place,
                 "longitude": lon,
                 "latitude": lat,
                 "depth_km": depth,
-                "tsunami_alert": tsunami,
-                "cocktail": cocktail
+                "tsunami_alert": tsunami
             }
             
             rec_dt = datetime.fromtimestamp(time_epoch / 1000.0, timezone.utc) if time_epoch else datetime.now(timezone.utc)
@@ -297,7 +151,6 @@ def fetch_earthquakes():
                 "title": title,
                 "severity_score": severity,
                 "description": f"Magnitude {mag:.1f} earthquake at {place} (Depth: {depth:.1f} km, Tsunami: {tsunami})",
-                "recommended_drink": cocktail["drink_name"],
                 "metadata": json.dumps(metadata),
                 "recorded_at": rec_dt.strftime("%Y-%m-%d %H:%M:%S")
             })
@@ -355,13 +208,11 @@ def fetch_space_weather():
                         severity = 6.5
 
                 severity = round(severity, 2)
-                cocktail = prescribe_drink("SPACE_WEATHER", severity)
                 short_desc = (body[:200] + "...") if len(body) > 200 else body
                 
                 metadata = {
                     "message_id": msg_id,
-                    "message_type": msg_type,
-                    "cocktail": cocktail
+                    "message_type": msg_type
                 }
                 
                 rec_dt = datetime.fromisoformat(issue_time.replace("Z", "+00:00")) if issue_time else datetime.now(timezone.utc)
@@ -371,7 +222,6 @@ def fetch_space_weather():
                     "title": f"{msg_type} Solar Event",
                     "severity_score": severity,
                     "description": short_desc,
-                    "recommended_drink": cocktail["drink_name"],
                     "metadata": json.dumps(metadata),
                     "recorded_at": rec_dt.strftime("%Y-%m-%d %H:%M:%S")
                 })
@@ -403,11 +253,9 @@ def fetch_asteroids():
                 severity = 9.5 if is_haz else min(max_diam / 10.0, 5.0)
                 severity = round(severity, 2)
                 
-                cocktail = prescribe_drink("ASTEROID", severity)
                 metadata = {
                     "max_width_meters": max_diam,
-                    "is_hazardous": is_haz,
-                    "cocktail": cocktail
+                    "is_hazardous": is_haz
                 }
                 
                 records.append({
@@ -415,7 +263,6 @@ def fetch_asteroids():
                     "title": name,
                     "severity_score": severity,
                     "description": f"Hazardous: {is_haz} | Max Diameter: {max_diam:.1f} meters",
-                    "recommended_drink": cocktail["drink_name"],
                     "metadata": json.dumps(metadata),
                     "recorded_at": f"{date_str} 00:00:00"
                 })
@@ -447,11 +294,9 @@ def extract_centroid(geom):
     return None, None
 
 
-def fetch_weather_and_markets():
-    """Ingests NWS active alerts with spatial coordinates and synthetic financial volatility indices."""
+def fetch_weather_alerts():
+    """Ingests active NWS weather alerts with spatial coordinates."""
     records = []
-    
-    # 1. NWS Alerts
     try:
         url = "https://api.weather.gov/alerts/active"
         headers = {"User-Agent": get_config("WEATHERGOV_USERAGENT", "BSL4ProtocolZero/1.0 (contact@platformstaq.com)")}
@@ -473,13 +318,11 @@ def fetch_weather_and_markets():
                 severity = min(severity + 0.8, 10.0)
             severity = round(severity, 2)
             
-            cocktail = prescribe_drink("TERRESTRIAL_WEATHER", severity)
             metadata = {
                 "event": event,
                 "place": area_desc,
                 "nws_severity": severity_str,
-                "urgency": urgency,
-                "cocktail": cocktail
+                "urgency": urgency
             }
             if lat is not None and lon is not None:
                 metadata["latitude"] = lat
@@ -493,29 +336,109 @@ def fetch_weather_and_markets():
                 "title": event,
                 "severity_score": severity,
                 "description": headline[:250],
-                "recommended_drink": cocktail["drink_name"],
                 "metadata": json.dumps(metadata),
                 "recorded_at": rec_dt.strftime("%Y-%m-%d %H:%M:%S")
             })
         logger.info(f"Parsed {len(records)} NWS weather alerts.")
     except Exception as e:
         logger.warning(f"NWS Weather ingestion notice: {e}")
+    return records
 
-    # 2. Financial Markets
-    records.append({
-        "threat_type": "STOCK_MARKET",
-        "title": "CBOE VIX Volatility Alert",
-        "severity_score": 7.4,
-        "description": "Global equity volatility index baseline tracking liquidity and hedge positioning.",
-        "recommended_drink": "Panic Button Martini",
-        "metadata": json.dumps({
-            "symbol": "^VIX",
-            "price": 28.5,
-            "cocktail": prescribe_drink("STOCK_MARKET", 7.4)
-        }),
-        "recorded_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    })
-    
+
+def fetch_global_markets():
+    """Ingests real-time international financial market telemetry via Yahoo Finance Chart API."""
+    records = []
+    global_assets = [
+        {"symbol": "^VIX", "name": "CBOE Volatility Index (Fear Index)", "region": "Americas", "is_vix": True},
+        {"symbol": "^GSPC", "name": "S&P 500 Index", "region": "Americas", "is_vix": False},
+        {"symbol": "^FTSE", "name": "FTSE 100 London", "region": "Europe", "is_vix": False},
+        {"symbol": "^N225", "name": "Nikkei 225 Tokyo", "region": "Asia-Pacific", "is_vix": False},
+        {"symbol": "^HSI", "name": "Hang Seng Hong Kong", "region": "Asia-Pacific", "is_vix": False},
+        {"symbol": "GC=F", "name": "Gold Futures (Safe Haven)", "region": "Global Commodities", "is_vix": False},
+        {"symbol": "BTC-USD", "name": "Bitcoin (24/7 Digital Liquidity)", "region": "Global Crypto", "is_vix": False},
+    ]
+
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+    for asset in global_assets:
+        sym = asset["symbol"]
+        try:
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(sym)}?interval=1d&range=1d"
+            data = http_get_json(url)
+            meta = data.get("chart", {}).get("result", [{}])[0].get("meta", {})
+
+            price = float(meta.get("regularMarketPrice") or 0.0)
+            prev_close = float(meta.get("chartPreviousClose") or meta.get("previousClose") or price)
+            chg_pct = ((price - prev_close) / prev_close) * 100.0 if prev_close > 0 else 0.0
+            day_high = float(meta.get("regularMarketDayHigh") or price)
+            day_low = float(meta.get("regularMarketDayLow") or price)
+            currency = meta.get("currency", "USD")
+
+            if asset["is_vix"]:
+                if price >= 40.0:
+                    severity = 9.8
+                elif price >= 30.0:
+                    severity = 8.5
+                elif price >= 20.0:
+                    severity = 6.5
+                elif price >= 15.0:
+                    severity = 4.5
+                else:
+                    severity = 3.0
+                title = f"VIX Volatility Panic ({price:.1f})"
+            elif sym == "BTC-USD":
+                severity = 9.2 if chg_pct <= -8.0 else (7.5 if chg_pct <= -4.0 else (5.5 if chg_pct <= -2.0 else 4.0))
+                title = f"{asset['name']} ({sym} {chg_pct:+.2f}%)"
+            elif sym == "GC=F":
+                severity = 7.8 if chg_pct >= 3.0 else 4.0
+                title = f"{asset['name']} ({sym} {chg_pct:+.2f}%)"
+            else:
+                drop = -chg_pct
+                severity = 9.5 if drop >= 5.0 else (8.0 if drop >= 3.0 else (6.0 if drop >= 1.5 else 4.0))
+                title = f"{asset['name']} ({sym} {chg_pct:+.2f}%)"
+
+            desc = f"{asset['name']} ({sym}) [{asset['region']}]: Price {currency} {price:,.2f}, 24h change {chg_pct:+.2f}% (Range: {day_low:,.2f} - {day_high:,.2f})"
+            metadata = {
+                "symbol": sym,
+                "name": asset["name"],
+                "region": asset["region"],
+                "price": round(price, 2),
+                "change_percent": round(chg_pct, 2),
+                "day_high": round(day_high, 2),
+                "day_low": round(day_low, 2),
+                "currency": currency
+            }
+
+            records.append({
+                "threat_type": "STOCK_MARKET",
+                "title": title,
+                "severity_score": severity,
+                "description": desc,
+                "metadata": json.dumps(metadata),
+                "recorded_at": now_str
+            })
+        except Exception as e:
+            logger.warning(f"Market fetch notice for {sym}: {e}")
+
+    if not records:
+        # Fallback record
+        records.append({
+            "threat_type": "STOCK_MARKET",
+            "title": "VIX Volatility Panic (28.5)",
+            "severity_score": 7.4,
+            "description": "CBOE Volatility Index tracking elevated market anxiety and defensive hedging across global liquidity pools.",
+            "metadata": json.dumps({
+                "symbol": "^VIX",
+                "name": "CBOE Volatility Index",
+                "region": "Americas",
+                "price": 28.5,
+                "change_percent": 8.4,
+                "fallback": True
+            }),
+            "recorded_at": now_str
+        })
+
+    logger.info(f"Parsed {len(records)} global financial market indicators.")
     return records
 
 
@@ -541,14 +464,13 @@ def persist_records(records):
         for r in records:
             conn.run(
                 """
-                INSERT INTO threat_records (threat_type, title, severity_score, description, recommended_drink, metadata, recorded_at)
-                VALUES (:threat_type, :title, :severity_score, :description, :recommended_drink, CAST(:metadata AS jsonb), CAST(:recorded_at AS timestamp))
+                INSERT INTO threat_records (threat_type, title, severity_score, description, metadata, recorded_at)
+                VALUES (:threat_type, :title, :severity_score, :description, CAST(:metadata AS jsonb), CAST(:recorded_at AS timestamp))
                 """,
                 threat_type=r["threat_type"],
                 title=r["title"],
                 severity_score=r["severity_score"],
                 description=r["description"],
-                recommended_drink=r["recommended_drink"],
                 metadata=r["metadata"],
                 recorded_at=r["recorded_at"]
             )
@@ -567,13 +489,14 @@ def persist_records(records):
 
 def lambda_handler(event, context):
     """AWS Lambda entry point for scheduled EventBridge invocations."""
-    logger.info(">>> Starting BSL-4 DEFCON Protocol Zero 30-Minute Threat Ingestion Pipeline...")
+    logger.info(">>> Starting BSL-4 DEFCON Protocol Zero Multi-Vector Threat Ingestion Pipeline...")
     
     all_records = []
     all_records.extend(fetch_earthquakes())
     all_records.extend(fetch_space_weather())
     all_records.extend(fetch_asteroids())
-    all_records.extend(fetch_weather_and_markets())
+    all_records.extend(fetch_weather_alerts())
+    all_records.extend(fetch_global_markets())
     
     total_saved = persist_records(all_records)
     
@@ -594,3 +517,4 @@ def lambda_handler(event, context):
 if __name__ == "__main__":
     # Local CLI execution test
     print(lambda_handler({}, None))
+

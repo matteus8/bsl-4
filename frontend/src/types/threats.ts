@@ -8,23 +8,12 @@ export type ThreatCategory =
 
 export type DateRangePreset = '24H' | '7D' | '30D' | 'ALL' | 'CUSTOM';
 
-export interface CocktailMetadata {
-  drink_name?: string;
-  glass?: string;
-  instructions?: string;
-  thumb_url?: string;
-  ingredients?: string[];
-  fallback?: boolean;
-  recipe?: string;
-}
-
 export interface ThreatRecord {
   id?: number;
   threatType: string;
   title: string;
   severityScore: number;
   description: string;
-  recommendedDrink: string;
   metadata?: string;
   recordedAt: string;
   // Computed client-side fields
@@ -37,15 +26,6 @@ export interface UserLocation {
   longitude: number;
   cityName?: string;
   isAutoDetected: boolean;
-}
-
-export interface PrescribedDrink {
-  name: string;
-  instructions: string;
-  glass: string;
-  thumbUrl?: string;
-  ingredients: string[];
-  metadataJson?: string;
 }
 
 export interface GeocodedLocation {
@@ -83,8 +63,6 @@ export interface RegionalAssessment {
   weather?: RegionalWeather;
   nearbySeismic?: NearbySeismic;
   localSeverityScore: number;
-  recommendedDrink: string;
   situationSummary: string;
-  cocktail?: Record<string, unknown>;
 }
 

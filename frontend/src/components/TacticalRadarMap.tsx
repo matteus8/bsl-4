@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { ThreatRecord, ThreatCategory, UserLocation, GeocodedLocation, RegionalAssessment } from '@/types/threats';
-import { Globe, Layers, Search, Navigation, MapPin, Loader2, Wine, ShieldAlert, X } from 'lucide-react';
+import { Globe, Layers, Search, Navigation, MapPin, Loader2, ShieldAlert, X } from 'lucide-react';
 import { geoNaturalEarth1, geoPath } from 'd3-geo';
 import { feature } from 'topojson-client';
 import type { Topology } from 'topojson-specification';
@@ -15,7 +15,6 @@ interface TacticalRadarMapProps {
   userLocation: UserLocation;
   setUserLocation: (loc: UserLocation) => void;
   onSelectThreat: (threat: ThreatRecord) => void;
-  onOpenCocktail?: (cocktailData: Record<string, unknown>, title: string, drinkName: string, severity: number) => void;
   hoveredThreatId?: number | string | null;
   setHoveredThreatId?: (id: number | string | null) => void;
   activeCategory?: ThreatCategory;
@@ -27,7 +26,6 @@ export default function TacticalRadarMap({
   userLocation,
   setUserLocation,
   onSelectThreat,
-  onOpenCocktail,
   hoveredThreatId,
   setHoveredThreatId,
   activeCategory = 'ALL',
@@ -420,26 +418,15 @@ export default function TacticalRadarMap({
               </div>
 
               {assessment.weather && (
-                <div className="text-[11px] text-slate-400 mb-2">
+                <div className="text-[11px] text-slate-400 mb-1.5">
                   {assessment.weather.temperatureF.toFixed(0)}°F &bull; {assessment.weather.conditionText} &bull; Wind {assessment.weather.windSpeedMph.toFixed(0)}mph
                 </div>
               )}
 
-              {onOpenCocktail && (
-                <button
-                  onClick={() => {
-                    onOpenCocktail(
-                      assessment.cocktail || {},
-                      `Amalgamated Protocol for ${assessment.locationName}`,
-                      assessment.recommendedDrink,
-                      assessment.localSeverityScore
-                    );
-                  }}
-                  className="w-full py-1.5 px-3 bg-[#FF007F] hover:bg-[#E60072] text-white font-bold rounded-lg text-[11px] shadow-pink-glow-sm transition flex items-center justify-center gap-1.5"
-                >
-                  <Wine className="w-3 h-3" />
-                  <span>Prescription: {assessment.recommendedDrink}</span>
-                </button>
+              {assessment.situationSummary && (
+                <div className="text-[11px] text-slate-300 leading-snug line-clamp-2 pt-1 border-t border-[#282a33]/60">
+                  {assessment.situationSummary}
+                </div>
               )}
             </div>
           )}

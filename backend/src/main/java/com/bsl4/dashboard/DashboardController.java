@@ -18,7 +18,6 @@ public class DashboardController {
     private final EarthquakeService earthquakeService;
     private final WeatherGovService weatherGovService;
     private final StockMarketService stockMarketService;
-    private final CocktailService cocktailService;
     private final LocationService locationService;
     private final ThreatRecordRepository threatRecordRepository;
 
@@ -26,14 +25,12 @@ public class DashboardController {
                                EarthquakeService earthquakeService,
                                WeatherGovService weatherGovService,
                                StockMarketService stockMarketService,
-                               CocktailService cocktailService,
                                LocationService locationService,
                                ThreatRecordRepository threatRecordRepository) {
         this.nasaService = nasaService;
         this.earthquakeService = earthquakeService;
         this.weatherGovService = weatherGovService;
         this.stockMarketService = stockMarketService;
-        this.cocktailService = cocktailService;
         this.locationService = locationService;
         this.threatRecordRepository = threatRecordRepository;
     }
@@ -111,17 +108,6 @@ public class DashboardController {
     @GetMapping("/threats/highest")
     public List<ThreatRecord> getHighestThreats(@RequestParam(defaultValue = "7.0") Double minSeverity) {
         return threatRecordRepository.findBySeverityScoreGreaterThanEqualOrderBySeverityScoreDesc(minSeverity);
-    }
-
-    @GetMapping("/cocktails/search")
-    public Map<String, Object> searchCocktail(@RequestParam String name) {
-        return cocktailService.fetchCocktailFromApi(name);
-    }
-
-    @GetMapping("/cocktails/prescribe")
-    public CocktailService.PrescribedDrink prescribeCocktail(@RequestParam(defaultValue = "GENERAL") String threatType,
-                                                             @RequestParam(defaultValue = "7.5") double severity) {
-        return cocktailService.prescribeDrink(threatType, severity);
     }
 
     @GetMapping("/location/geocode")

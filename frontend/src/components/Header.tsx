@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { MapPin, Wine, Sun, Moon } from 'lucide-react';
+import { MapPin, Sun, Moon, Radio } from 'lucide-react';
 import { UserLocation } from '@/types/threats';
 
 interface HeaderProps {
@@ -26,7 +26,7 @@ export default function Header({
         {/* Brand */}
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-[#FF007F]/10 border border-[#FF007F]/25 text-[#FF007F] flex items-center justify-center">
-            <Wine className="w-5 h-5" />
+            <Radio className="w-5 h-5 animate-pulse" />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -34,11 +34,11 @@ export default function Header({
                 BSL-4
               </h1>
               <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#FF007F]/15 text-[#FF007F] border border-[#FF007F]/30">
-                Pairings
+                PROTOCOL ZERO
               </span>
             </div>
             <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Global Telemetry & Curated Drink Recommendations
+              Global Planetary Hazard & Crisis Telemetry
             </p>
           </div>
         </div>

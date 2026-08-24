@@ -1,10 +1,10 @@
 # BSL-4: Protocol Zero
 
-**Assess the threat. Pour the drink.**
+**Global Planetary Hazard & Crisis Telemetry Platform**
 
-BSL-4 is a serverless application that tracks real-time atmospheric anomalies, space weather events, seismic disasters, financial market crises, and doomsday environmental factors, prescribing the appropriate cocktail (or calming tea) to weather the crisis.
+BSL-4 is an enterprise serverless telemetry platform that aggregates, tracks, and scores real-time atmospheric anomalies, space weather events, seismic disasters, international financial market crises, and near-Earth asteroid approaches.
 
-Whether it is a high-severity solar flare, an uncomfortably close asteroid, a major earthquake, or a stock market crash, BSL-4 calculates the danger level and provides the exact liquid countermeasure you need.
+Whether it is a high-severity solar flare, an uncomfortably close asteroid, a major earthquake, or international stock market volatility, BSL-4 calculates composite danger levels with high-precision geospatial and telemetry metrics.
 
 ---
 
@@ -20,8 +20,8 @@ bsl-4/
 │   └── pom.xml               # Maven configuration & AWS SDK v2
 ├── frontend/                 # Next.js 14 (App Router) + Tailwind CSS + TypeScript
 │   ├── src/app/              # Tactical DEFCON Bunker Dashboard
-│   ├── src/components/       # Radar Map, DEFCON Gauge, Event Modals, Location Search
-│   ├── src/lib/              # Audio Synth, Haversine geo distance, API client
+│   ├── src/components/       # Radar Map, DEFCON Gauge, Event Modals, Tactical Table
+│   ├── src/lib/              # Haversine geo distance, API client
 │   └── out/                  # Static export build (synced to S3)
 ├── worker/                   # Dedicated Ingestion Worker (Python 3.12)
 │   ├── main.py               # Ingestion pipeline & Supabase persistence
@@ -91,10 +91,13 @@ python main.py
    - Dynamic severity calculation based on Richter magnitude and tsunami alert flags.
 3. **NWS Atmospheric Threats (Weather.gov)**:
    - Severe atmospheric threats, hurricane alerts, tornado emergencies, and extreme weather warnings.
-4. **Financial Stock Market Telemetry**:
-   - Tracking CBOE Volatility Index (VIX) spikes, S&P 500 market drawdowns, and crypto crash metrics.
-5. **Dynamic Cocktail Prescription Engine**:
-   - Real-time prescription engine mapping `(threat_type, severity_score)` to recipes from TheCocktailDB directory.
+4. **International Financial Market Telemetry (Yahoo Finance)**:
+   - Polling across continuous international market trading hours:
+     - **Americas**: CBOE Volatility Index (`^VIX`), S&P 500 (`^GSPC`)
+     - **Europe**: FTSE 100 London (`^FTSE`)
+     - **Asia-Pacific**: Nikkei 225 Tokyo (`^N225`), Hang Seng Hong Kong (`^HSI`)
+     - **Commodities & Liquidity**: Gold Futures (`GC=F`), Bitcoin (`BTC-USD`)
+   - Snapshot deduplication via threat category purging before batch persistence.
 
 ---
 
@@ -107,8 +110,7 @@ python main.py
 | `title` | varchar | Specific event identifier (e.g. CME Event, M 5.7 Earthquake, Solar Flare X2.8, VIX Spike) |
 | `severity_score` | float8 | Calculated danger metric (0.0 to 10.0 scale) |
 | `description` | text | Extended details of the threat |
-| `recommended_drink` | varchar | Prescribed beverage (e.g. Zombie, Hurricane, Manhattan, Negroni, Panic Button Martini) |
-| `metadata` | jsonb | Telemetry parameters, coordinates, depth, and recipe checklist |
+| `metadata` | jsonb | Telemetry parameters, coordinates, depth, market ranges, and pricing |
 | `recorded_at` | timestamp | Exact time of physical occurrence |
 
 ---

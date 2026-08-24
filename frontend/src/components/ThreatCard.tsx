@@ -111,10 +111,35 @@ export default function EventTable({
     }
 
     if (threat.threatType === 'STOCK_MARKET') {
+      let symbol = '';
+      let region = 'Global';
+      let changePct: number | null = null;
+      try {
+        const meta = typeof threat.metadata === 'string' ? JSON.parse(threat.metadata) : threat.metadata;
+        if (meta) {
+          symbol = meta.symbol || '';
+          region = meta.region || 'Global';
+          if (typeof meta.change_percent === 'number') changePct = meta.change_percent;
+        }
+      } catch {
+        // Ignored
+      }
       return (
-        <div className="flex items-center gap-1.5 text-slate-400">
-          <Layers className="w-3.5 h-3.5 text-red-400 shrink-0" />
-          <span className="text-[11px] font-mono">Global Market Index</span>
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-1.5">
+            <Layers className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="truncate max-w-[170px] font-medium">{region}</span>
+          </div>
+          {symbol && (
+            <div className="text-[10px] font-mono pl-5 flex items-center gap-1">
+              <span className="text-slate-400">{symbol}</span>
+              {changePct !== null && (
+                <span className={changePct >= 0 ? 'text-emerald-400 font-semibold' : 'text-rose-400 font-semibold'}>
+                  {changePct >= 0 ? '+' : ''}{changePct.toFixed(2)}%
+                </span>
+              )}
+            </div>
+          )}
         </div>
       );
     }

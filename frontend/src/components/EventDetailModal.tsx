@@ -63,9 +63,14 @@ export default function EventDetailModal({ threat, onClose }: EventDetailModalPr
   const magnitude = typeof metadata.magnitude === 'number' ? metadata.magnitude : null;
   const tsunamiAlert = typeof metadata.tsunami_alert === 'number' ? metadata.tsunami_alert : null;
   const symbol = typeof metadata.symbol === 'string' ? metadata.symbol : null;
+  const price = typeof metadata.price === 'number' ? metadata.price : null;
   const changePercent = typeof metadata.change_percent === 'number' ? metadata.change_percent : null;
+  const dayHigh = typeof metadata.day_high === 'number' ? metadata.day_high : null;
+  const dayLow = typeof metadata.day_low === 'number' ? metadata.day_low : null;
+  const currency = typeof metadata.currency === 'string' ? metadata.currency : 'USD';
+  const region = typeof metadata.region === 'string' ? metadata.region : null;
   const maxWidthMeters = typeof metadata.max_width_meters === 'number' ? metadata.max_width_meters : null;
-  const hasSensorReadings = magnitude !== null || tsunamiAlert !== null || symbol !== null || changePercent !== null || maxWidthMeters !== null;
+  const hasSensorReadings = magnitude !== null || tsunamiAlert !== null || symbol !== null || changePercent !== null || maxWidthMeters !== null || price !== null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
@@ -132,9 +137,9 @@ export default function EventDetailModal({ threat, onClose }: EventDetailModalPr
               <span>Location & Proximity Telemetry</span>
             </div>
 
-            {place && (
+            {(place || region) && (
               <div className="text-sm font-semibold text-white">
-                {place}
+                {place || `${region} Market Liquidity Pool`}
               </div>
             )}
 
@@ -189,14 +194,28 @@ export default function EventDetailModal({ threat, onClose }: EventDetailModalPr
                 )}
                 {symbol !== null && (
                   <div>
-                    <span className="text-slate-500 block text-[10px]">Index Symbol:</span>
+                    <span className="text-slate-500 block text-[10px]">Ticker / Asset:</span>
                     <span className="text-white font-bold">{symbol}</span>
+                  </div>
+                )}
+                {price !== null && (
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Current Price:</span>
+                    <span className="text-white font-bold">{currency} {price.toLocaleString()}</span>
                   </div>
                 )}
                 {changePercent !== null && (
                   <div>
-                    <span className="text-slate-500 block text-[10px]">Volatility Spike:</span>
-                    <span className="text-red-400 font-bold">+{changePercent}%</span>
+                    <span className="text-slate-500 block text-[10px]">24h Movement:</span>
+                    <span className={`font-bold ${changePercent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {changePercent >= 0 ? '+' : ''}{changePercent.toFixed(2)}%
+                    </span>
+                  </div>
+                )}
+                {dayHigh !== null && dayLow !== null && (
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Day Range:</span>
+                    <span className="text-slate-300">{dayLow.toFixed(1)} - {dayHigh.toFixed(1)}</span>
                   </div>
                 )}
                 {maxWidthMeters !== null && (

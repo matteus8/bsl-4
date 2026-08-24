@@ -16,11 +16,9 @@ public class EarthquakeService {
 
     private final RestClient restClient;
     private final ThreatRecordRepository threatRecordRepository;
-    private final CocktailService cocktailService;
 
-    public EarthquakeService(ThreatRecordRepository threatRecordRepository, CocktailService cocktailService) {
+    public EarthquakeService(ThreatRecordRepository threatRecordRepository) {
         this.threatRecordRepository = threatRecordRepository;
-        this.cocktailService = cocktailService;
         this.restClient = RestClient.create("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary");
     }
 
@@ -55,11 +53,10 @@ public class EarthquakeService {
                     double depth = coordinates.size() > 2 ? coordinates.get(2).doubleValue() : 0.0;
 
                     double severity = calculateEarthquakeSeverity(mag, tsunami);
-                    CocktailService.PrescribedDrink drink = cocktailService.prescribeDrink("EARTHQUAKE", severity);
 
                     String metadataJson = String.format(
-                        "{\"magnitude\": %.2f, \"place\": \"%s\", \"longitude\": %.4f, \"latitude\": %.4f, \"depth_km\": %.2f, \"tsunami_alert\": %d, \"cocktail\": %s}",
-                        mag, escapeJson(place), longitude, latitude, depth, tsunami, drink.metadataJson()
+                        "{\"magnitude\": %.2f, \"place\": \"%s\", \"longitude\": %.4f, \"latitude\": %.4f, \"depth_km\": %.2f, \"tsunami_alert\": %d}",
+                        mag, escapeJson(place), longitude, latitude, depth, tsunami
                     );
 
                     LocalDateTime recordedAt = timeEpoch != null 
@@ -71,7 +68,6 @@ public class EarthquakeService {
                         title != null ? title : "M " + mag + " Earthquake",
                         severity,
                         String.format("Magnitude %.1f earthquake at %s (Depth: %.1f km, Tsunami: %d)", mag, place, depth, tsunami),
-                        drink.name(),
                         metadataJson,
                         recordedAt
                     );

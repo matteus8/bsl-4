@@ -1,4 +1,4 @@
-import { ThreatRecord, PrescribedDrink } from '@/types/threats';
+import { ThreatRecord } from '@/types/threats';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? '' : 'http://localhost:8080');
 
@@ -48,39 +48,6 @@ export async function triggerProtocolZeroRefresh(): Promise<{ status: string; me
       status: 'SUCCESS',
       message: 'All Protocol Zero threat pipelines calculated and logged in emergency mode.',
     };
-  }
-}
-
-export async function prescribeDrink(threatType: string, severity: number): Promise<PrescribedDrink> {
-  try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/cocktails/prescribe?threatType=${encodeURIComponent(threatType)}&severity=${severity}`,
-      {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-      }
-    );
-    if (!res.ok) throw new Error(`Prescription failed with status ${res.status}`);
-    return await res.json();
-  } catch (err) {
-    console.warn('Prescription API fallback:', err);
-    return {
-      name: severity >= 8 ? 'Panic Button Martini' : severity >= 5 ? 'Kamikaze' : 'Hot Toddy',
-      instructions: 'Shake vigorously with ice and serve immediately. Prepare for impending shockwave.',
-      glass: 'Cocktail glass',
-      thumbUrl: 'https://www.thecocktaildb.com/images/media/drink/d7ff7u1606855412.jpg',
-      ingredients: ['2 oz Vodka', '1 oz Triple Sec', '1 oz Fresh Lime Juice'],
-    };
-  }
-}
-
-export async function searchCocktail(name: string): Promise<Record<string, unknown> | null> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/cocktails/search?name=${encodeURIComponent(name)}`);
-    if (!res.ok) throw new Error(`Search failed with status ${res.status}`);
-    return await res.json();
-  } catch {
-    return null;
   }
 }
 
@@ -243,33 +210,6 @@ export async function assessLocation(params: { address?: string; lat?: number; l
   // Compound with global solar flare & market volatility
   localScore = Math.min(9.8, Math.max(2.0, localScore + 1.8));
 
-  // Amalgamated drink prescription
-  let drinkName = 'Panic Button Martini';
-  let drinkInstructions = 'Stir Navy-strength gin and dry vermouth with cracked ice until chillingly cold. Strain into a chilled martini glass with an orange peel.';
-  let drinkGlass = 'Martini Glass';
-  let drinkIngredients = ['2 1/2 oz Navy Strength Gin', '1/2 oz Dry Vermouth', '2 dashes Orange Bitters', 'Lemon twist'];
-  let drinkThumb = 'https://www.thecocktaildb.com/images/media/drink/hbkfsh1589574990.jpg';
-
-  if (nearestDistanceKm < 2500 && nearestPlace.includes('Peru')) {
-    drinkName = 'Pisco Sour (Tremor Edition)';
-    drinkInstructions = 'Vigorously shake Peruvian Pisco, fresh lime juice, simple syrup, and egg white with ice. Strain and top with 3 drops of Angostura bitters.';
-    drinkGlass = 'Old-Fashioned Glass';
-    drinkIngredients = ['2 oz Peruvian Pisco', '1 oz Fresh Lime Juice', '3/4 oz Simple Syrup', '1 Egg White', '3 drops Angostura Bitters'];
-    drinkThumb = 'https://www.thecocktaildb.com/images/media/drink/5noda61589575158.jpg';
-  } else if (localScore >= 8.5) {
-    drinkName = 'Earthquake';
-    drinkInstructions = 'Shake Gin, Bourbon, and Absinthe vigorously with cracked ice. Strain and serve immediately.';
-    drinkGlass = 'Highball Glass';
-    drinkIngredients = ['1 1/2 oz Gin', '1 1/2 oz Bourbon', '1/4 oz Absinthe / Pernod'];
-    drinkThumb = 'https://www.thecocktaildb.com/images/media/drink/5noda61589575158.jpg';
-  } else if (localScore >= 6.5) {
-    drinkName = 'Solar Flare Margarita';
-    drinkInstructions = 'Rub glass rim with chili salt. Shake tequila, lime juice, and passion fruit liqueur over ice.';
-    drinkGlass = 'Margarita Glass';
-    drinkIngredients = ['2 oz Reposado Tequila', '1 oz Lime Juice', '1 oz Passion Fruit Liqueur', '1/2 oz Agave'];
-    drinkThumb = 'https://www.thecocktaildb.com/images/media/drink/5noda61589575158.jpg';
-  }
-
   const situationSummary = `Compound threat matrix for ${locationName}: Nearest seismic hazard is ${nearestPlace} (M ${nearestMag.toFixed(1)}, ${Math.round(nearestDistanceKm).toLocaleString()} km away). Compounded by global solar flare radiation (X3.8) and market volatility (VIX 48.6). Amalgamated risk index is ${localScore.toFixed(1)}/10.0.`;
 
   return {
@@ -279,7 +219,6 @@ export async function assessLocation(params: { address?: string; lat?: number; l
     latitude: lat,
     longitude: lon,
     localSeverityScore: localScore,
-    recommendedDrink: drinkName,
     situationSummary,
     weather: {
       temperatureF: 72.0,
@@ -294,13 +233,6 @@ export async function assessLocation(params: { address?: string; lat?: number; l
       magnitude: nearestMag,
       place: nearestPlace,
       title: `M ${nearestMag} - ${nearestPlace}`,
-    },
-    cocktail: {
-      drink_name: drinkName,
-      glass: drinkGlass,
-      instructions: drinkInstructions,
-      ingredients: drinkIngredients,
-      thumb_url: drinkThumb,
     },
   };
 }
@@ -332,7 +264,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'M 6.7 - 31 km NW of Aniso, Peru',
       severityScore: 8.5,
       description: 'Magnitude 6.7 major seismic event in Ayacucho / Apurímac region, Peru. Hypocenter Depth: 99.0 km.',
-      recommendedDrink: 'Pisco Sour (Tremor Edition)',
       metadata: JSON.stringify({
         magnitude: 6.7,
         place: "31 km NW of Aniso, Peru",
@@ -349,7 +280,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'M 7.2 Cascadia Subduction Rupture',
       severityScore: 9.4,
       description: 'Magnitude 7.2 earthquake off the coast of Oregon. Depth: 12.4 km. Tsunami advisory active.',
-      recommendedDrink: 'Earthquake',
       metadata: JSON.stringify({
         magnitude: 7.2,
         place: "Off Coast of Oregon",
@@ -366,7 +296,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'M 6.5 - Tonga Trench Subduction Zone',
       severityScore: 7.8,
       description: 'Magnitude 6.5 undersea shock in Kermadec-Tonga subduction zone. Depth: 210.0 km.',
-      recommendedDrink: 'Blue Hawaiian',
       metadata: JSON.stringify({
         magnitude: 6.5,
         place: "Tonga Trench Region",
@@ -383,7 +312,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'M 7.1 - Miyazaki Coast, Hyuga-nada Japan',
       severityScore: 9.1,
       description: 'Magnitude 7.1 megathrust tremor near Nankai Trough boundary. Tsunami advisory issued for Kyushu coast.',
-      recommendedDrink: 'Tokyo Mule',
       metadata: JSON.stringify({
         magnitude: 7.1,
         place: "Miyazaki Coast, Japan",
@@ -400,7 +328,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'M 6.8 - Mindanao, Philippines',
       severityScore: 8.6,
       description: 'Magnitude 6.8 strong tectonic rupture east of Mindanao. Depth: 35.0 km.',
-      recommendedDrink: 'Mai Tai',
       metadata: JSON.stringify({
         magnitude: 6.8,
         place: "Mindanao, Philippines",
@@ -417,7 +344,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'M 6.2 - Antofagasta Coastal Fault, Chile',
       severityScore: 7.6,
       description: 'Magnitude 6.2 seismic event in Atacama subduction zone. Depth: 82.0 km.',
-      recommendedDrink: 'Pisco Sour',
       metadata: JSON.stringify({
         magnitude: 6.2,
         place: "Antofagasta, Chile",
@@ -434,7 +360,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'M 6.4 - Reykjanes Ridge Volcanic Rift, Iceland',
       severityScore: 7.9,
       description: 'Magnitude 6.4 rifting swarm with magmatic intrusion along Mid-Atlantic Ridge.',
-      recommendedDrink: 'Black Velvet',
       metadata: JSON.stringify({
         magnitude: 6.4,
         place: "Reykjanes Ridge, Iceland",
@@ -451,7 +376,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'M 7.0 - Kamchatka Peninsula Offshore',
       severityScore: 8.8,
       description: 'Magnitude 7.0 powerful subduction tremor near Avacha Bay. Depth: 48.0 km.',
-      recommendedDrink: 'Moscow Mule',
       metadata: JSON.stringify({
         magnitude: 7.0,
         place: "East Coast of Kamchatka",
@@ -470,7 +394,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'X3.8 Solar Flare Event',
       severityScore: 8.9,
       description: 'Major coronal mass ejection heading earthward from Active Region 3664. Radio blackouts observed.',
-      recommendedDrink: 'Solar Flare Margarita',
       metadata: JSON.stringify({
         message_id: "DONKI-X38-FLR",
         flare_class: "X3.8",
@@ -483,7 +406,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'G4 Severe Geomagnetic Storm (Kp=8.3)',
       severityScore: 9.3,
       description: 'High-speed interplanetary shock wave arrived at Earth magnetosphere. Aurora sightings at mid-latitudes.',
-      recommendedDrink: 'Northern Lights Cocktail',
       metadata: JSON.stringify({
         message_id: "DONKI-GST-G4",
         kp_index: 8.3,
@@ -496,7 +418,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'CME Plasma Wave (1,820 km/s)',
       severityScore: 8.1,
       description: 'Fast halo coronal mass ejection detected by SOHO/LASCO coronagraphs directed Earthward.',
-      recommendedDrink: 'Cosmopolitan',
       metadata: JSON.stringify({
         message_id: "DONKI-CME-1820",
         speed_kms: 1820,
@@ -509,7 +430,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'X1.9 Extreme Flare - AR3697',
       severityScore: 8.4,
       description: 'Impulsive X-class radiation burst causing wide-area HF degradation over Atlantic.',
-      recommendedDrink: 'Solar Storm',
       metadata: JSON.stringify({
         message_id: "DONKI-X19-FLR",
         flare_class: "X1.9",
@@ -522,7 +442,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'Coronal Hole High-Speed Stream (720 km/s)',
       severityScore: 6.8,
       description: 'Elevated solar wind velocity creating recurring G2 moderate geomagnetic disturbances.',
-      recommendedDrink: 'Dark and Stormy',
       metadata: JSON.stringify({
         message_id: "DONKI-HSS-CH",
         speed_kms: 720,
@@ -535,7 +454,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'S3 Strong Solar Radiation Storm',
       severityScore: 8.7,
       description: 'Proton flux above 10 MeV exceeded 1,000 pfu threshold. Polar flight satellite comms re-routed.',
-      recommendedDrink: 'Bloody Mary',
       metadata: JSON.stringify({
         message_id: "DONKI-SEP-S3",
         radiation_level: "S3",
@@ -550,7 +468,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'Asteroid 2026-XQ9 Close Flyby',
       severityScore: 7.8,
       description: 'Diameter 480 meters passing within 0.38 Lunar Distance. Categorized as potentially hazardous NEO.',
-      recommendedDrink: 'Kamikaze',
       metadata: JSON.stringify({
         max_width_meters: 480.0,
         is_hazardous: true,
@@ -563,7 +480,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'Asteroid 2024 ON Hazardous Approach',
       severityScore: 8.2,
       description: 'Stadium-sized asteroid (350m) tracked by Goldstone Deep Space radar at 620,000 miles.',
-      recommendedDrink: 'Meteor Shower',
       metadata: JSON.stringify({
         max_width_meters: 350.0,
         is_hazardous: true,
@@ -576,7 +492,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'Asteroid 99942 Apophis Orbit Check',
       severityScore: 7.2,
       description: 'Keyhole trajectory tracking update for 340-meter object in Aten orbital group.',
-      recommendedDrink: 'Apocalypse Now',
       metadata: JSON.stringify({
         max_width_meters: 340.0,
         is_hazardous: false,
@@ -589,7 +504,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'Asteroid 2024 PT5 Mini-Moon Capture',
       severityScore: 5.5,
       description: 'Temporary Earth gravitational capture of 11-meter Arjuna asteroid into horseshoe orbit.',
-      recommendedDrink: 'Moonwalk',
       metadata: JSON.stringify({
         max_width_meters: 11.0,
         is_hazardous: false,
@@ -602,7 +516,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'Asteroid 2024 CR9 Close Orbit',
       severityScore: 7.6,
       description: '420-meter diameter Near-Earth Object passing at 14.8 km/s relative velocity.',
-      recommendedDrink: 'Black Hole',
       metadata: JSON.stringify({
         max_width_meters: 420.0,
         is_hazardous: true,
@@ -610,76 +523,96 @@ function getFallbackThreats(): ThreatRecord[] {
       recordedAt: daysAgo(29, 3)
     },
 
-    // ----------------- STOCK MARKET & VIX (Past 30 Days) -----------------
+    // ----------------- STOCK MARKET & GLOBAL MARKETS (Past 30 Days) -----------------
     {
       id: 400,
       threatType: 'STOCK_MARKET',
       title: 'VIX Volatility Panic (48.6)',
       severityScore: 9.8,
-      description: 'Global equity sell-off triggered. CBOE Volatility index spiked +38.4% in morning trading session.',
-      recommendedDrink: 'Panic Button Martini',
+      description: 'CBOE Volatility Index spiked to 48.6 (+38.4%). Extreme panic hedging across global equity markets.',
       metadata: JSON.stringify({
         symbol: "^VIX",
+        name: "CBOE Volatility Index (Fear Index)",
+        region: "Americas",
         price: 48.6,
         change_percent: 38.4,
+        day_high: 52.1,
+        day_low: 35.2,
+        currency: "USD"
       }),
       recordedAt: daysAgo(0, 10)
     },
     {
       id: 401,
       threatType: 'STOCK_MARKET',
-      title: 'Global Tech Equities Liquidation (-3.8%)',
-      severityScore: 7.9,
-      description: 'Nasdaq composite plunges 640 points in high-volume margin unwinding.',
-      recommendedDrink: 'Margin Call',
+      title: 'S&P 500 Index (^GSPC -2.85%)',
+      severityScore: 7.5,
+      description: 'S&P 500 Index [Americas]: Price USD 5,186.00, 24h change -2.85% (Range: 5,140.00 - 5,310.00)',
       metadata: JSON.stringify({
-        symbol: "^IXIC",
-        price: 16720.0,
-        change_percent: -3.8,
+        symbol: "^GSPC",
+        name: "S&P 500 Index",
+        region: "Americas",
+        price: 5186.0,
+        change_percent: -2.85,
+        day_high: 5310.0,
+        day_low: 5140.0,
+        currency: "USD"
       }),
-      recordedAt: daysAgo(5, 16)
+      recordedAt: daysAgo(1, 16)
     },
     {
       id: 402,
       threatType: 'STOCK_MARKET',
-      title: 'Crypto Flash Deleveraging (-12.4%)',
+      title: 'Bitcoin (BTC-USD -6.40%)',
       severityScore: 8.5,
-      description: '$1.4B in leveraged long liquidations across digital asset exchanges within 4 hours.',
-      recommendedDrink: 'Crypto Crash',
+      description: 'Bitcoin (24/7 Digital Liquidity) [Global Crypto]: Price USD 62,400.00, 24h change -6.40% (Range: 61,200.00 - 66,800.00)',
       metadata: JSON.stringify({
         symbol: "BTC-USD",
-        price: 54200.0,
-        change_percent: -12.4,
+        name: "Bitcoin (24/7 Digital Liquidity)",
+        region: "Global Crypto",
+        price: 62400.0,
+        change_percent: -6.40,
+        day_high: 66800.0,
+        day_low: 61200.0,
+        currency: "USD"
       }),
-      recordedAt: daysAgo(13, 21)
+      recordedAt: daysAgo(2, 21)
     },
     {
       id: 403,
       threatType: 'STOCK_MARKET',
-      title: 'Nikkei Circuit Breaker Drawdown (-12.4%)',
-      severityScore: 9.6,
-      description: 'Historic yen carry trade unwinding causes Tokyo exchanges to halt trading.',
-      recommendedDrink: 'Red Hook',
+      title: 'Nikkei 225 Tokyo (^N225 -4.80%)',
+      severityScore: 9.0,
+      description: 'Nikkei 225 Tokyo [Asia-Pacific]: Price JPY 37,200.00, 24h change -4.80% (Range: 36,900.00 - 39,100.00)',
       metadata: JSON.stringify({
         symbol: "^N225",
-        price: 31458.0,
-        change_percent: -12.4,
+        name: "Nikkei 225 Tokyo",
+        region: "Asia-Pacific",
+        price: 37200.0,
+        change_percent: -4.80,
+        day_high: 39100.0,
+        day_low: 36900.0,
+        currency: "JPY"
       }),
-      recordedAt: daysAgo(20, 5)
+      recordedAt: daysAgo(5, 5)
     },
     {
       id: 404,
       threatType: 'STOCK_MARKET',
-      title: 'S&P 500 Intraday Panic Selloff (-2.9%)',
+      title: 'Gold Futures (GC=F +2.45%)',
       severityScore: 7.2,
-      description: 'Broad market drawdown across banking and industrial sectors on liquidity tightening.',
-      recommendedDrink: 'Wall Street',
+      description: 'Gold Futures (Safe Haven) [Global Commodities]: Price USD 2,510.00, 24h change +2.45% (Range: 2,445.00 - 2,518.00)',
       metadata: JSON.stringify({
-        symbol: "^GSPC",
-        price: 5186.0,
-        change_percent: -2.9,
+        symbol: "GC=F",
+        name: "Gold Futures (Safe Haven)",
+        region: "Global Commodities",
+        price: 2510.0,
+        change_percent: 2.45,
+        day_high: 2518.0,
+        day_low: 2445.0,
+        currency: "USD"
       }),
-      recordedAt: daysAgo(26, 17)
+      recordedAt: daysAgo(10, 17)
     },
 
     // ----------------- TERRESTRIAL WEATHER (Past 30 Days) -----------------
@@ -689,7 +622,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'Category 5 Atmospheric Vortex',
       severityScore: 8.5,
       description: 'Extreme central pressure drop with sustained 160mph winds along Gulf Coast.',
-      recommendedDrink: 'Hurricane',
       metadata: JSON.stringify({
         event: "Hurricane Warning",
         nws_severity: "Extreme",
@@ -703,7 +635,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'Supercell Outbreak & Tornado Emergency',
       severityScore: 9.2,
       description: 'Multiple violent EF-4 wedge tornadoes verified across Plains corridor.',
-      recommendedDrink: 'Twister',
       metadata: JSON.stringify({
         event: "Tornado Warning",
         nws_severity: "Extreme",
@@ -717,7 +648,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'Atmospheric River Category 5 Inundation',
       severityScore: 8.3,
       description: '14 inches of torrential rainfall and catastrophic mudflow risks in coastal mountain passes.',
-      recommendedDrink: 'Monsoon',
       metadata: JSON.stringify({
         event: "Flash Flood Emergency",
         nws_severity: "Severe",
@@ -731,7 +661,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'Polar Vortex Arctic Flash Freeze (-42°F)',
       severityScore: 7.5,
       description: 'Life-threatening wind chills and grid emergency declared across northern Midwest.',
-      recommendedDrink: 'Frostbite',
       metadata: JSON.stringify({
         event: "Wind Chill Warning",
         nws_severity: "Severe",
@@ -745,7 +674,6 @@ function getFallbackThreats(): ThreatRecord[] {
       title: 'Severe Derecho Wind Complex (110 mph)',
       severityScore: 8.0,
       description: 'Widespread straight-line hurricane force damage swath across 400 miles.',
-      recommendedDrink: 'Stormy Night',
       metadata: JSON.stringify({
         event: "Severe Thunderstorm Warning",
         nws_severity: "Severe",

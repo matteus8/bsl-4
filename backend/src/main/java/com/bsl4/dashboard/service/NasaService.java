@@ -18,14 +18,12 @@ public class NasaService {
 
     private final RestClient restClient;
     private final ThreatRecordRepository threatRecordRepository;
-    private final CocktailService cocktailService;
 
     @Value("${nasa.api.key:DEMO_KEY}")
     private String nasaApiKey;
 
-    public NasaService(ThreatRecordRepository threatRecordRepository, CocktailService cocktailService) {
+    public NasaService(ThreatRecordRepository threatRecordRepository) {
         this.threatRecordRepository = threatRecordRepository;
-        this.cocktailService = cocktailService;
         this.restClient = RestClient.create("https://api.nasa.gov");
     }
 
@@ -67,13 +65,10 @@ public class NasaService {
 
                         double severity = Boolean.TRUE.equals(isHazardous) ? 9.5 : Math.min((maxDiameter != null ? maxDiameter : 50.0) / 10.0, 5.0);
                         
-                        // Prescribe cocktail dynamically
-                        CocktailService.PrescribedDrink drink = cocktailService.prescribeDrink("ASTEROID", severity);
-                        
                         // Construct structured JSON metadata
                         String jsonMetadata = String.format(
-                            "{\"max_width_meters\": %.2f, \"is_hazardous\": %b, \"cocktail\": %s}",
-                            maxDiameter != null ? maxDiameter : 50.0, isHazardous, drink.metadataJson()
+                            "{\"max_width_meters\": %.2f, \"is_hazardous\": %b}",
+                            maxDiameter != null ? maxDiameter : 50.0, isHazardous
                         );
 
                         ThreatRecord record = new ThreatRecord(
@@ -81,7 +76,6 @@ public class NasaService {
                             name,
                             severity,
                             "Hazardous: " + isHazardous + " | Max Width: " + maxDiameter + " meters",
-                            drink.name(),
                             jsonMetadata,
                             LocalDate.parse(dateKey).atStartOfDay()
                         );
@@ -120,12 +114,11 @@ public class NasaService {
                     String messageIssueTime = (String) event.get("messageIssueTime");
 
                     double severity = calculateSpaceWeatherSeverity(messageType, messageBody);
-                    CocktailService.PrescribedDrink drink = cocktailService.prescribeDrink("SPACE_WEATHER", severity);
 
                     String shortBody = messageBody != null && messageBody.length() > 200 ? messageBody.substring(0, 200) + "..." : messageBody;
                     String jsonMetadata = String.format(
-                        "{\"message_id\": \"%s\", \"cocktail\": %s}",
-                        messageID, drink.metadataJson()
+                        "{\"message_id\": \"%s\"}",
+                        messageID
                     );
 
                     LocalDateTime recordedAt = messageIssueTime != null 
@@ -137,7 +130,6 @@ public class NasaService {
                         messageType + " Event",
                         severity,
                         shortBody,
-                        drink.name(),
                         jsonMetadata,
                         recordedAt
                     );

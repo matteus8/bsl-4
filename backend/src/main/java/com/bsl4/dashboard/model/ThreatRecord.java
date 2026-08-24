@@ -19,8 +19,6 @@ public class ThreatRecord {
     
     @Column(columnDefinition = "TEXT")
     private String description;
-    
-    private String recommendedDrink;
 
     @Column(columnDefinition = "TEXT")
     private String metadata;
@@ -31,12 +29,11 @@ public class ThreatRecord {
     // Constructors
     public ThreatRecord() {}
 
-    public ThreatRecord(String threatType, String title, Double severityScore, String description, String recommendedDrink, String metadata, LocalDateTime recordedAt) {
+    public ThreatRecord(String threatType, String title, Double severityScore, String description, String metadata, LocalDateTime recordedAt) {
         this.threatType = threatType;
         this.title = title;
         this.severityScore = severityScore;
         this.description = description;
-        this.recommendedDrink = recommendedDrink;
         this.metadata = metadata;
         this.recordedAt = recordedAt;
     }
@@ -56,9 +53,6 @@ public class ThreatRecord {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
-
-    public String getRecommendedDrink() { return recommendedDrink; }
-    public void setRecommendedDrink(String recommendedDrink) { this.recommendedDrink = recommendedDrink; }
 
     public String getMetadata() { return metadata; }
     public void setMetadata(String metadata) { this.metadata = metadata; }
