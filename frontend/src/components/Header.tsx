@@ -1,8 +1,15 @@
 'use client';
 
 import React from 'react';
-import { MapPin, Sun, Moon, Radio } from 'lucide-react';
+import { MapPin, Sun, Moon, ExternalLink } from 'lucide-react';
 import { UserLocation } from '@/types/threats';
+
+const GithubIcon = ({ className = 'w-3.5 h-3.5' }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
+    <path d="M9 18c-4.51 2-5-2-7-2" />
+  </svg>
+);
 
 interface HeaderProps {
   userLocation: UserLocation;
@@ -17,52 +24,65 @@ export default function Header({
   toggleTheme,
 }: HeaderProps) {
   return (
-    <header className={`border-b backdrop-blur sticky top-0 z-40 transition-colors ${
+    <header className={`border-b transition-colors ${
       isDark
-        ? 'border-[#282a33] bg-[#121316]/95 text-white'
-        : 'border-slate-200 bg-white/95 text-slate-900 shadow-sm'
+        ? 'border-[#232733] bg-[#12141a] text-white'
+        : 'border-slate-200 bg-white text-slate-900 shadow-sm'
     }`}>
-      <div className="max-w-6xl mx-auto px-4 py-3.5 flex flex-wrap items-center justify-between gap-4">
-        {/* Brand & Headline */}
+      <div className="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+        {/* Left: Brand & Headline */}
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-[#FF007F]/10 border border-[#FF007F]/25 text-[#FF007F] flex items-center justify-center">
-            <Radio className="w-5 h-5 animate-pulse" />
+          <div className="px-2.5 py-1 rounded-lg bg-[#FF007F]/10 border border-[#FF007F]/25 text-[#FF007F] font-black text-xs tracking-wider font-mono flex items-center justify-center">
+            BSL-4
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className={`text-base sm:text-lg font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                THE WORLD IS ENDING...
-              </h1>
-              <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#FF007F]/15 text-[#FF007F] border border-[#FF007F]/30 uppercase font-mono tracking-wider">
-                BUT IS IT REALITY?
-              </span>
-            </div>
-            <p className={`text-[11px] font-mono ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              BSL-4 Protocol Zero &bull; Real-time Planetary Hazard vs. Hysteria Index
-            </p>
+          <div className="flex items-center">
+            <span className={`text-xs sm:text-sm font-bold tracking-wide uppercase font-mono px-2.5 py-1 rounded-md border ${
+              isDark 
+                ? 'bg-[#181a22] border-[#2c3040] text-slate-200' 
+                : 'bg-slate-100 border-slate-200 text-slate-800'
+            }`}>
+              THE WORLD IS ENDING... BUT IS IT REALITY?
+            </span>
           </div>
         </div>
 
-        {/* Controls: Active Location Badge, Theme Toggle */}
-        <div className="flex items-center gap-2.5 sm:gap-3">
+        {/* Right Controls: Location Pin, GitHub Link, Theme Toggle */}
+        <div className="flex items-center gap-2 sm:gap-2.5">
           {/* Active location indicator */}
           {userLocation.cityName && (
-            <div className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border ${
-              isDark ? 'text-slate-300 bg-[#16171c] border-[#282a33]' : 'text-slate-700 bg-slate-50 border-slate-200'
+            <div className={`hidden md:flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border font-mono ${
+              isDark ? 'text-slate-300 bg-[#181a22] border-[#2c3040]' : 'text-slate-700 bg-slate-50 border-slate-200'
             }`}>
               <MapPin className="w-3.5 h-3.5 text-[#FF007F] shrink-0" />
-              <span className="truncate max-w-[180px] sm:max-w-[240px]">
+              <span className="truncate max-w-[170px]">
                 {userLocation.cityName.split(',')[0]}
               </span>
             </div>
           )}
+
+          {/* GitHub Source Link */}
+          <a
+            href="https://github.com/matteus8/bsl-4/tree/main"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold font-mono transition ${
+              isDark
+                ? 'bg-[#181a22] hover:bg-[#222530] border-[#2c3040] text-slate-200 hover:text-white'
+                : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900'
+            }`}
+            title="View source code on GitHub"
+          >
+            <GithubIcon className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">GitHub</span>
+            <ExternalLink className="w-3 h-3 text-slate-500" />
+          </a>
 
           {/* Theme Toggle (Light / Dark) */}
           <button
             onClick={toggleTheme}
             className={`p-2 rounded-lg border transition-colors flex items-center justify-center ${
               isDark
-                ? 'bg-[#16171c] hover:bg-[#20222a] border-[#282a33] text-amber-400'
+                ? 'bg-[#181a22] hover:bg-[#222530] border-[#2c3040] text-amber-400'
                 : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
             }`}
             title={isDark ? 'Switch to Bright/Light Theme' : 'Switch to Dark Theme'}

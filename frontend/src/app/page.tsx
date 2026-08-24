@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import AIVerdictBanner from '@/components/AIVerdictBanner';
 import TacticalRadarMap from '@/components/TacticalRadarMap';
 import OrbitalSpaceWatch from '@/components/OrbitalSpaceWatch';
@@ -423,18 +424,8 @@ export default function Dashboard() {
         onClose={() => setSelectedThreat(null)}
       />
 
-      {/* Minimal Footer */}
-      <footer className={`border-t py-5 mt-10 text-xs text-center transition-colors ${
-        isDark ? 'border-[#282a33] text-slate-500' : 'border-slate-200 text-slate-500 bg-white'
-      }`}>
-        <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div>BSL-4 Protocol Zero &bull; Global Planetary Hazard vs. Hysteria Telemetry</div>
-          <div className="text-emerald-400 font-mono font-medium flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            REALITY MONITOR: NOMINAL
-          </div>
-        </div>
-      </footer>
+      {/* Professional Mission-Control Footer */}
+      <Footer isDark={isDark} />
     </div>
   );
 }
