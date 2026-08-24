@@ -1,6 +1,6 @@
 """
 BSL-4 AI Editorial Verdict Worker
-Scheduled via AWS EventBridge (every 3 hours) to:
+Scheduled via AWS EventBridge (every 12 hours) to:
 1. Verify that real threat evidence is present in Supabase PostgreSQL (public.threat_records).
 2. Synthesize multi-vector evidence (seismic, orbital, space weather, severe weather, and market volatility).
 3. Query Google Gemini (using GEMINI_API_KEY from AWS SSM Parameter Store) to generate an authoritative AI Editorial Verdict.
