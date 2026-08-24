@@ -40,6 +40,9 @@ public class StockMarketService {
                 if (quoteResponse.containsKey("result")) {
                     List<Map<String, Object>> results = (List<Map<String, Object>>) quoteResponse.get("result");
 
+                    // Purge previous stock market records to keep only the latest snapshot
+                    threatRecordRepository.deleteByThreatType("STOCK_MARKET");
+
                     for (Map<String, Object> quote : results) {
                         String symbol = (String) quote.get("symbol");
                         String shortName = (String) quote.get("shortName");
@@ -138,6 +141,7 @@ public class StockMarketService {
             LocalDateTime.now()
         );
 
+        threatRecordRepository.deleteByThreatType("STOCK_MARKET");
         threatRecordRepository.save(record);
         System.out.println(">>> Logged fallback financial crisis threat to Supabase.");
     }

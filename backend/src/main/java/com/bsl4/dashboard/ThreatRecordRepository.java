@@ -1,9 +1,11 @@
 package com.bsl4.dashboard.model;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,6 +18,11 @@ public interface ThreatRecordRepository extends JpaRepository<ThreatRecord, Long
     List<ThreatRecord> findByRecordedAtAfterOrderByRecordedAtDesc(LocalDateTime after);
     List<ThreatRecord> findBySeverityScoreGreaterThanEqualOrderBySeverityScoreDesc(Double minSeverity);
     List<ThreatRecord> findByThreatTypeOrderByRecordedAtDesc(String threatType);
+
+    @Transactional
+    @Modifying
+    @Query("DELETE FROM ThreatRecord t WHERE t.threatType = :threatType")
+    void deleteByThreatType(@Param("threatType") String threatType);
 
     @Query(value = """
         SELECT id, threat_type, title, severity_score, description, recommended_drink, metadata, recorded_at

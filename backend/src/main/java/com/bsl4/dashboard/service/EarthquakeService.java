@@ -34,6 +34,9 @@ public class EarthquakeService {
             if (response != null && response.containsKey("features")) {
                 List<Map<String, Object>> features = (List<Map<String, Object>>) response.get("features");
 
+                // Purge previous earthquake records to keep only the latest snapshot
+                threatRecordRepository.deleteByThreatType("EARTHQUAKE");
+
                 for (Map<String, Object> feature : features) {
                     Map<String, Object> properties = (Map<String, Object>) feature.get("properties");
                     Map<String, Object> geometry = (Map<String, Object>) feature.get("geometry");

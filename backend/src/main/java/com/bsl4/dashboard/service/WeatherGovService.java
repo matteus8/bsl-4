@@ -39,6 +39,9 @@ public class WeatherGovService {
             if (response != null && response.containsKey("features")) {
                 List<Map<String, Object>> features = (List<Map<String, Object>>) response.get("features");
 
+                // Purge previous active weather alerts to keep only the latest snapshot
+                threatRecordRepository.deleteByThreatType("TERRESTRIAL_WEATHER");
+
                 int count = 0;
                 for (Map<String, Object> feature : features) {
                     Map<String, Object> properties = (Map<String, Object>) feature.get("properties");

@@ -47,6 +47,9 @@ public class NasaService {
             if (response != null && response.containsKey("near_earth_objects")) {
                 Map<String, Object> neoMap = (Map<String, Object>) response.get("near_earth_objects");
                 
+                // Purge previous asteroid records to keep only the latest snapshot
+                threatRecordRepository.deleteByThreatType("ASTEROID");
+
                 for (String dateKey : neoMap.keySet()) {
                     List<Map<String, Object>> asteroids = (List<Map<String, Object>>) neoMap.get(dateKey);
                     if (asteroids == null) continue;
@@ -107,6 +110,9 @@ public class NasaService {
                     .body(Map[].class);
 
             if (response != null && response.length > 0) {
+                // Purge previous space weather records to keep only the latest snapshot
+                threatRecordRepository.deleteByThreatType("SPACE_WEATHER");
+
                 for (Map<String, Object> event : response) {
                     String messageType = (String) event.get("messageType");
                     String messageBody = (String) event.get("messageBody");

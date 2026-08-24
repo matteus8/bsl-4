@@ -485,6 +485,9 @@ def fetch_weather_and_markets():
                 metadata["latitude"] = lat
                 metadata["longitude"] = lon
             
+            sent_time = props.get("sent")
+            rec_dt = datetime.fromisoformat(sent_time.replace("Z", "+00:00")) if sent_time else datetime.now(timezone.utc)
+            
             records.append({
                 "threat_type": "TERRESTRIAL_WEATHER",
                 "title": event,
@@ -492,7 +495,7 @@ def fetch_weather_and_markets():
                 "description": headline[:250],
                 "recommended_drink": cocktail["drink_name"],
                 "metadata": json.dumps(metadata),
-                "recorded_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                "recorded_at": rec_dt.strftime("%Y-%m-%d %H:%M:%S")
             })
         logger.info(f"Parsed {len(records)} NWS weather alerts.")
     except Exception as e:
@@ -519,7 +522,7 @@ def fetch_weather_and_markets():
 # --- SUPABASE PERSISTENCE ---
 
 def persist_records(records):
-    """Inserts / upserts records into Supabase PostgreSQL."""
+    """Inserts latest records into Supabase PostgreSQL, purging previous snapshot to prevent duplicates."""
     if not records:
         logger.info("No records to persist.")
         return 0
@@ -527,12 +530,19 @@ def persist_records(records):
     conn = get_db_connection()
     inserted = 0
     try:
+        # Determine all unique threat types present in the newly fetched batch
+        threat_types = list({r["threat_type"] for r in records if "threat_type" in r})
+
+        # Purge previous snapshot records for the refreshed threat categories
+        for t_type in threat_types:
+            logger.info(f"Purging existing records for threat_type='{t_type}'...")
+            conn.run("DELETE FROM threat_records WHERE threat_type = :threat_type", threat_type=t_type)
+
         for r in records:
             conn.run(
                 """
                 INSERT INTO threat_records (threat_type, title, severity_score, description, recommended_drink, metadata, recorded_at)
                 VALUES (:threat_type, :title, :severity_score, :description, :recommended_drink, CAST(:metadata AS jsonb), CAST(:recorded_at AS timestamp))
-                ON CONFLICT DO NOTHING
                 """,
                 threat_type=r["threat_type"],
                 title=r["title"],
@@ -543,7 +553,7 @@ def persist_records(records):
                 recorded_at=r["recorded_at"]
             )
             inserted += 1
-        logger.info(f"Successfully processed {inserted} records into Supabase.")
+        logger.info(f"Successfully processed and refreshed {inserted} latest records into Supabase.")
     except Exception as e:
         logger.error(f"Error persisting to Supabase: {e}")
         raise e
