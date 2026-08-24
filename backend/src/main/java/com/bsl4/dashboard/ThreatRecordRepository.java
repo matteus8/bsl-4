@@ -60,4 +60,12 @@ public interface ThreatRecordRepository extends JpaRepository<ThreatRecord, Long
         @Param("afterDate") LocalDateTime afterDate,
         @Param("limit") int limit
     );
+
+    @Query(value = """
+        SELECT id, verdict_text, panic_index, status_level, summary_narrative, created_at
+        FROM ai_editorial_verdicts
+        ORDER BY created_at DESC
+        LIMIT 1
+        """, nativeQuery = true)
+    List<Object[]> findLatestEditorialVerdictRow();
 }

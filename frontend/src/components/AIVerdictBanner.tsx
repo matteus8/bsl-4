@@ -6,13 +6,61 @@ import { ShieldCheck, ShieldAlert, Sparkles, Activity, Orbit, TrendingDown, Load
 
 interface AIVerdictBannerProps {
   threats: ThreatRecord[];
+  storedVerdict?: {
+    panicIndex?: number;
+    verdictText?: string;
+    statusLevel?: string;
+    summaryNarrative?: string;
+    createdAt?: string;
+  } | null;
   loading?: boolean;
   isDark?: boolean;
 }
 
-export default function AIVerdictBanner({ threats, loading = false, isDark = true }: AIVerdictBannerProps) {
-  // Dynamically calculate the Global Panic Index & Verdict Narrative
+export default function AIVerdictBanner({ threats, storedVerdict, loading = false, isDark = true }: AIVerdictBannerProps) {
+  // Dynamically calculate the Global Panic Index & Verdict Narrative (fallback if no stored verdict)
   const verdict = useMemo(() => {
+    if (storedVerdict && typeof storedVerdict.panicIndex === 'number' && storedVerdict.verdictText) {
+      const isSafe = storedVerdict.panicIndex < 4.0;
+      const statusTag = isSafe ? 'REALITY: SAFE & NOMINAL' : storedVerdict.panicIndex < 7.0 ? 'REALITY: ELEVATED HYSTERIA' : 'REALITY: MULTI-VECTOR ALERT';
+      
+      let maxQuakeMag = 0;
+      let highestSolarClass = 'Quiet';
+      let marketVolatilitySpike = 0;
+
+      threats.forEach((t) => {
+        let meta: Record<string, unknown> = {};
+        try {
+          if (typeof t.metadata === 'string') meta = JSON.parse(t.metadata);
+          else if (t.metadata) meta = t.metadata as unknown as Record<string, unknown>;
+        } catch {
+          meta = {};
+        }
+        if (t.threatType === 'EARTHQUAKE') {
+          const mag = typeof meta.magnitude === 'number' ? meta.magnitude : 0;
+          if (mag > maxQuakeMag) maxQuakeMag = mag;
+        } else if (t.threatType === 'SPACE_WEATHER') {
+          const msgType = typeof meta.message_type === 'string' ? meta.message_type : '';
+          if (msgType.includes('X') || t.title.includes('X-Class')) highestSolarClass = 'X-Class Flare';
+          else if (msgType.includes('M') || t.title.includes('M-Class')) highestSolarClass = 'M-Class Flare';
+        } else if (t.threatType === 'STOCK_MARKET') {
+          const change = typeof meta.change_percent === 'number' ? meta.change_percent : 0;
+          const sym = typeof meta.symbol === 'string' ? meta.symbol : '';
+          if (sym.includes('VIX') && change > marketVolatilitySpike) marketVolatilitySpike = change;
+        }
+      });
+
+      return {
+        panicScore: storedVerdict.panicIndex,
+        narrative: storedVerdict.verdictText,
+        isSafe,
+        statusTag,
+        maxQuakeMag,
+        highestSolarClass,
+        marketVolatilitySpike,
+      };
+    }
+
     if (threats.length === 0) {
       return null;
     }
@@ -100,7 +148,7 @@ export default function AIVerdictBanner({ threats, loading = false, isDark = tru
       highestSolarClass,
       marketVolatilitySpike,
     };
-  }, [threats]);
+  }, [threats, storedVerdict]);
 
   // Loading skeleton state to prevent 1.8 flash on initial page load / refresh
   if (loading || !verdict) {

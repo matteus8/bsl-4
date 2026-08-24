@@ -34,6 +34,33 @@ export async function fetchNearbyThreats(lat: number, lon: number, days = 30): P
   }
 }
 
+export interface EditorialVerdictResponse {
+  id?: number;
+  verdictText?: string;
+  panicIndex?: number;
+  statusLevel?: string;
+  summaryNarrative?: string;
+  createdAt?: string;
+}
+
+export async function fetchLatestEditorialVerdict(): Promise<EditorialVerdictResponse | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/threats/editorial/latest`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store'
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data && typeof data.panicIndex === 'number' && data.verdictText) {
+      return data;
+    }
+  } catch {
+    // Graceful fallback to client calculation
+  }
+  return null;
+}
+
 export async function triggerProtocolZeroRefresh(): Promise<{ status: string; message: string }> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/threats/refresh-all`, {

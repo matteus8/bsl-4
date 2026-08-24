@@ -6,6 +6,8 @@
 
 set -e
 
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -n 1)/bin:$PATH"
+
 # Load environment variables from .env if present
 if [ -f .env ]; then
   export $(grep -v '^#' .env | xargs)

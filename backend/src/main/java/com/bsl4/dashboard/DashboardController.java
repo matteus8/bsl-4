@@ -122,4 +122,25 @@ public class DashboardController {
             @RequestParam(required = false) Double lon) {
         return locationService.assessRegion(address, lat, lon);
     }
+
+    @GetMapping("/threats/editorial/latest")
+    public Map<String, Object> getLatestEditorialVerdict() {
+        try {
+            List<Object[]> rows = threatRecordRepository.findLatestEditorialVerdictRow();
+            if (rows != null && !rows.isEmpty()) {
+                Object[] r = rows.get(0);
+                return Map.of(
+                    "id", r[0] != null ? r[0] : 0,
+                    "verdictText", r[1] != null ? r[1].toString() : "",
+                    "panicIndex", r[2] != null ? Double.parseDouble(r[2].toString()) : 2.1,
+                    "statusLevel", r[3] != null ? r[3].toString() : "NOMINAL",
+                    "summaryNarrative", r[4] != null ? r[4].toString() : "",
+                    "createdAt", r[5] != null ? r[5].toString() : ""
+                );
+            }
+        } catch (Exception e) {
+            System.err.println("Error reading latest editorial verdict: " + e.getMessage());
+        }
+        return Map.of();
+    }
 }

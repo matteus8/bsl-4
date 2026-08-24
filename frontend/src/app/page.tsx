@@ -10,7 +10,7 @@ import MacroNoiseSection from '@/components/MacroNoiseSection';
 import EventTable from '@/components/ThreatCard';
 import EventDetailModal from '@/components/EventDetailModal';
 import { ThreatRecord, ThreatCategory, UserLocation } from '@/types/threats';
-import { fetchNearbyThreats, triggerProtocolZeroRefresh } from '@/lib/api';
+import { fetchNearbyThreats, fetchLatestEditorialVerdict, EditorialVerdictResponse, triggerProtocolZeroRefresh } from '@/lib/api';
 import { calculateDistanceKm } from '@/lib/geo';
 import { Search, Compass, Layers } from 'lucide-react';
 
@@ -25,6 +25,7 @@ const CATEGORIES: { id: ThreatCategory; label: string }[] = [
 
 export default function Dashboard() {
   const [threats, setThreats] = useState<ThreatRecord[]>([]);
+  const [storedVerdict, setStoredVerdict] = useState<EditorialVerdictResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [selectedThreat, setSelectedThreat] = useState<ThreatRecord | null>(null);
@@ -47,8 +48,14 @@ export default function Dashboard() {
   const loadData = useCallback(async (lat = userLocation.latitude, lon = userLocation.longitude) => {
     setLoading(true);
     try {
-      const data = await fetchNearbyThreats(lat, lon);
+      const [data, verdictData] = await Promise.all([
+        fetchNearbyThreats(lat, lon),
+        fetchLatestEditorialVerdict(),
+      ]);
       setThreats(data);
+      if (verdictData) {
+        setStoredVerdict(verdictData);
+      }
     } finally {
       setLoading(false);
     }
@@ -175,6 +182,7 @@ export default function Dashboard() {
         {/* ================================================================ */}
         <AIVerdictBanner
           threats={enrichedThreats}
+          storedVerdict={storedVerdict}
           loading={loading}
           isDark={isDark}
         />
