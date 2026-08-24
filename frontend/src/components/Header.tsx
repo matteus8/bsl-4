@@ -41,7 +41,7 @@ export default function Header({
                 ? 'bg-[#181a22] border-[#2c3040] text-slate-200' 
                 : 'bg-slate-100 border-slate-200 text-slate-800'
             }`}>
-              THE WORLD IS ENDING... BUT IS IT REALITY?
+              THE WORLD IS ENDING... BUT IS IT REALLY?
             </span>
           </div>
         </div>

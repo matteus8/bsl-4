@@ -1,6 +1,6 @@
 # BSL-4
 
-> **THE WORLD IS ENDING... BUT IS IT REALITY?**
+> **THE WORLD IS ENDING... BUT IS IT REALLY?**
 
 **Live Website:** [platformstaq.com](https://platformstaq.com)
 
