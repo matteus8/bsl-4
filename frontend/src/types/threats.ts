@@ -66,3 +66,17 @@ export interface RegionalAssessment {
   situationSummary: string;
 }
 
+export interface SocialHysteriaItem {
+  id: string;
+  platform: 'TikTok' | 'Twitter/X' | 'YouTube' | 'Reddit' | 'Instagram';
+  author: string;
+  handle: string;
+  claim: string;
+  realityCheck: string;
+  hysteriaLevel: number; // 1-10
+  reach: string;
+  timeAgo: string;
+  verifiedDebunk: boolean;
+  categoryTag: 'VOLCANO' | 'COSMIC' | 'ECONOMIC' | 'WEATHER' | 'CONSPIRACY';
+}
+

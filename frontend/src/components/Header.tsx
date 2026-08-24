@@ -23,22 +23,22 @@ export default function Header({
         : 'border-slate-200 bg-white/95 text-slate-900 shadow-sm'
     }`}>
       <div className="max-w-6xl mx-auto px-4 py-3.5 flex flex-wrap items-center justify-between gap-4">
-        {/* Brand */}
+        {/* Brand & Headline */}
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-[#FF007F]/10 border border-[#FF007F]/25 text-[#FF007F] flex items-center justify-center">
             <Radio className="w-5 h-5 animate-pulse" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className={`text-lg font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                BSL-4
+              <h1 className={`text-base sm:text-lg font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                THE WORLD IS ENDING...
               </h1>
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#FF007F]/15 text-[#FF007F] border border-[#FF007F]/30">
-                PROTOCOL ZERO
+              <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#FF007F]/15 text-[#FF007F] border border-[#FF007F]/30 uppercase font-mono tracking-wider">
+                BUT IS IT REALITY?
               </span>
             </div>
-            <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Global Planetary Hazard & Crisis Telemetry
+            <p className={`text-[11px] font-mono ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              BSL-4 Protocol Zero &bull; Real-time Planetary Hazard vs. Hysteria Index
             </p>
           </div>
         </div>

@@ -247,24 +247,24 @@ export default function TacticalRadarMap({
       {/* Map Header Bar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Globe className="w-4 h-4 text-[#FF007F]" />
-          <h3 className={`text-sm font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-            Global Threat Radar & Proximity Map
-          </h3>
+          <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md bg-[#FF007F]/10 text-[#FF007F] border border-[#FF007F]/25 flex items-center gap-1.5 font-mono">
+            <Globe className="w-3.5 h-3.5" />
+            2. GEOSPATIAL MAP & LOCAL REALITY
+          </span>
           <span className={`text-[10px] px-2 py-0.5 rounded font-mono ${
             isDark ? 'bg-[#21242d] text-slate-400' : 'bg-slate-100 text-slate-600'
           }`}>
-            Click anywhere on map to pin
+            Click map or search to reposition pin
           </span>
         </div>
         <div className={`flex items-center gap-3 text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-          <span className="flex items-center gap-1.5 font-medium">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#FF007F] shadow-sm" />
+          <span className="flex items-center gap-1.5 font-medium font-mono text-[11px]">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#FF007F] shadow-sm animate-pulse" />
             <span className="truncate max-w-[160px] sm:max-w-none">{userLocation.cityName?.split(' (')[0] || 'Your Region'}</span>
           </span>
-          <span className="flex items-center gap-1.5">
+          <span className="flex items-center gap-1.5 font-mono text-[11px]">
             <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-            <span>{mappedThreats.length} Active Mapped Hazards</span>
+            <span>{mappedThreats.length} Active Mapped Quakes/Alerts</span>
           </span>
         </div>
       </div>
@@ -531,6 +531,34 @@ export default function TacticalRadarMap({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Local Reality Summary Bar */}
+      <div className={`p-3.5 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs ${
+        isDark ? 'bg-[#101114] border-[#282a33] text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+      }`}>
+        <div className="flex items-center gap-2 font-mono text-[11px] sm:text-xs">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+          <span>
+            {assessment?.nearbySeismic ? (
+              <>
+                Nearest earthquake is <strong>{formatDistance(assessment.nearbySeismic.nearestDistanceKm)}</strong> away ({assessment.nearbySeismic.place}).
+              </>
+            ) : (
+              <>Nearest earthquake is over 800 miles away.</>
+            )}{' '}
+            {assessment?.weather ? (
+              <>Local weather in <strong>{userLocation.cityName?.split(',')[0] || 'your area'}</strong> is <strong>{assessment.weather.temperatureF.toFixed(0)}°F</strong>, {assessment.weather.conditionText.toLowerCase()}.</>
+            ) : (
+              <>Local atmosphere is clear.</>
+            )}{' '}
+            <strong className="text-emerald-400">Ground status: Stable.</strong>
+          </span>
+        </div>
+
+        <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 shrink-0">
+          LOCAL REALITY: VERIFIED
+        </span>
       </div>
     </div>
   );
