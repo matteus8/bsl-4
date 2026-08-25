@@ -70,6 +70,19 @@ export async function fetchNearbyThreats(lat: number, lon: number, days = 30): P
   return fetchLatestThreats();
 }
 
+export interface SocialDoomscrollItem {
+  handle: string;
+  author: string;
+  platform?: string;
+  verified?: boolean;
+  post_text?: string;
+  postText?: string;
+  hysteria_score?: number;
+  hysteriaScore?: number;
+  sanity_check?: string;
+  sanityCheck?: string;
+}
+
 export interface EditorialVerdictResponse {
   id?: number;
   verdictText?: string;
@@ -77,6 +90,7 @@ export interface EditorialVerdictResponse {
   statusLevel?: string;
   summaryNarrative?: string;
   keyFactors?: string[];
+  socialDoomscroll?: SocialDoomscrollItem[];
   modelUsed?: string;
   updatedAt?: string;
   createdAt?: string;

@@ -243,12 +243,43 @@ def generate_heuristic_editorial_verdict(evidence_summary: dict):
         "Macro: Routine market volatility"
     ]
     
+    social_doomscroll = [
+        {
+            "handle": "@crypto_macro_panic",
+            "author": "Apex Macro Trader",
+            "platform": "X",
+            "verified": True,
+            "post_text": "VIX spiked on market turbulence! Algorithms triggering circuit breakers. 2008 repeat in motion?! 📉🚨 #MarketCrash",
+            "hysteria_score": 9.2,
+            "sanity_check": "Routine liquidity adjustments and algorithmic rebalancing. Global banking core is completely sound."
+        },
+        {
+            "handle": "@cosmic_watch_hub",
+            "author": "Orbital Threat Radar",
+            "platform": "X",
+            "verified": False,
+            "post_text": f"NASA tracking asteroid {ast.get('closest_approach', '2019 MH1')} near Earth orbit zone today! Brace for impact?! 🪨👀 #Asteroid",
+            "hysteria_score": 8.7,
+            "sanity_check": f"Passing at comfortable planetary distance ({round(ast.get('miss_distance_km', 54000000)/1e6, 1)}M km). Zero atmospheric collision probability."
+        },
+        {
+            "handle": "@solar_flare_alert",
+            "author": "Space Weather Monitor",
+            "platform": "X",
+            "verified": True,
+            "post_text": "Major coronal mass ejection detected from the Sun! Will our electrical grids and Starlink fry this week?! ⚡☀️ #SolarStorm",
+            "hysteria_score": 7.8,
+            "sanity_check": "Standard geomagnetic absorption in upper ionosphere. Bring a camera for polar auroras; leave the generator alone."
+        }
+    ]
+
     return {
         "panic_index": panic_index,
         "status_level": status_level,
         "verdict_text": verdict_text,
         "summary_narrative": summary_narrative,
-        "key_factors": key_factors
+        "key_factors": key_factors,
+        "social_doomscroll": social_doomscroll
     }, "bsl4-evidence-synthesizer"
 
 
@@ -277,6 +308,7 @@ Provide a balanced perspective:
 - If financial markets are panicking (e.g. VIX spike, S&P drop) but physical systems (earthquakes, asteroids, solar flares) are nominal, call out Wall Street's nervous hysteria while reassuring that the physical planet is completely safe.
 - If an asteroid passed, note its vast distance (e.g., millions of km / multiples of lunar distance) and reassure that dinosaurs would be jealous.
 - If a solar flare occurred, explain it is a harmless atmospheric light show (aurora) rather than an apocalypse.
+- Generate 3 realistic, hilarious "Social Media Doomscroll / Panic Tweets" reflecting what viral overreacting accounts on X (Twitter) are posting about today's hazards, paired with a sharp, grounded 1-sentence BSL-4 sanity check.
 
 Return ONLY a valid JSON object matching this schema:
 {{
@@ -288,6 +320,35 @@ Return ONLY a valid JSON object matching this schema:
     "Tectonics: Baseline background activity only",
     "Orbital: Zero atmospheric collision threats",
     "Macro: Mild speculative market jitters"
+  ],
+  "social_doomscroll": [
+    {{
+      "handle": "@crypto_doomer_99",
+      "author": "Apex Macro Doom",
+      "platform": "X",
+      "verified": true,
+      "post_text": "VIX spiked 2.5%, S&P in freefall. Liquidate everything! 2008 repeat is here 📉🚨 #MarketCrash",
+      "hysteria_score": 9.4,
+      "sanity_check": "Routine algorithmic portfolio rebalancing. The global banking system is completely fine."
+    }},
+    {{
+      "handle": "@cosmic_panic_now",
+      "author": "Cosmic Alert Hub",
+      "platform": "X",
+      "verified": false,
+      "post_text": "NASA detected a massive asteroid flying right past Earth today! Why is mainstream media silent?! 🪨👀 #Asteroid",
+      "hysteria_score": 8.8,
+      "sanity_check": "Passed 54 million kilometers away. Closer to Mars than your roof."
+    }},
+    {{
+      "handle": "@weather_apocalypse",
+      "author": "Storm Chaser Central",
+      "platform": "X",
+      "verified": true,
+      "post_text": "Severe storm fronts developing across the continent. Grid collapse imminent?! ⚡❄️ #Blizzard2026",
+      "hysteria_score": 7.6,
+      "sanity_check": "Standard mid-latitude precipitation band. Bring an umbrella."
+    }}
   ]
 }}
 """
@@ -418,6 +479,7 @@ def publish_s3_snapshot(verdict_data, evidence_summary, model_used, evidence_lis
             "verdictText": str(verdict_data.get("verdict_text", "")),
             "summaryNarrative": str(verdict_data.get("summary_narrative", "")),
             "keyFactors": verdict_data.get("key_factors", []),
+            "socialDoomscroll": verdict_data.get("social_doomscroll", []),
             "modelUsed": str(model_used),
             "updatedAt": datetime.now(timezone.utc).isoformat()
         }

@@ -9,10 +9,11 @@ import OrbitalSpaceWatch from '@/components/OrbitalSpaceWatch';
 import MacroNoiseSection from '@/components/MacroNoiseSection';
 import EventTable from '@/components/ThreatCard';
 import EventDetailModal from '@/components/EventDetailModal';
+import { SocialDoomscrollFeed } from '@/components/SocialDoomscrollFeed';
 import { ThreatRecord, ThreatCategory, UserLocation } from '@/types/threats';
 import { fetchLatestThreats, fetchLatestEditorialVerdict, EditorialVerdictResponse, triggerProtocolZeroRefresh } from '@/lib/api';
 import { calculateDistanceKm } from '@/lib/geo';
-import { Search, Compass, Layers } from 'lucide-react';
+import { Search, Compass } from 'lucide-react';
 
 const CATEGORIES: { id: ThreatCategory; label: string }[] = [
   { id: 'ALL', label: 'All Hazards' },
@@ -214,7 +215,15 @@ export default function Dashboard() {
         />
 
         {/* ================================================================ */}
-        {/* SECTION 4: THE MACRO NOISE (Markets, Economy & Social Hysteria)  */}
+        {/* SECTION 4: DOOMSCROLL RADAR (Social Panic vs Physical Reality)   */}
+        {/* ================================================================ */}
+        <SocialDoomscrollFeed
+          socialItems={storedVerdict?.socialDoomscroll}
+          isDark={isDark}
+        />
+
+        {/* ================================================================ */}
+        {/* SECTION 5: THE MACRO NOISE (Markets, Economy & Volatility)       */}
         {/* ================================================================ */}
         <MacroNoiseSection
           threats={enrichedThreats}
@@ -227,77 +236,73 @@ export default function Dashboard() {
         {/* ================================================================ */}
         {/* RAW TELEMETRY REGISTRY (Search, Category Filters, Event Table)    */}
         {/* ================================================================ */}
-        <div className="space-y-4 pt-4 border-t border-[#282a33]/60">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md bg-[#FF007F]/10 text-[#FF007F] border border-[#FF007F]/25 flex items-center gap-1.5 font-mono">
-                <Layers className="w-3.5 h-3.5" />
-                RAW TELEMETRY REGISTRY
-              </span>
+        <div className="space-y-3 pt-3 border-t border-[#282a33]/60">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+            {/* Category Filter Buttons */}
+            <div className="flex flex-wrap items-center gap-1.5 flex-1">
+              {CATEGORIES.map((cat) => {
+                const isActive = activeCategory === cat.id;
+                const count = categoryCounts[cat.id] || 0;
+
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setActiveCategory(cat.id)}
+                    className={`px-3 py-1 rounded-xl text-xs font-semibold font-mono transition-all flex items-center gap-1.5 ${
+                      isActive
+                        ? 'bg-[#FF007F] text-white shadow-md shadow-[#FF007F]/20'
+                        : isDark
+                        ? 'bg-[#12141c] hover:bg-[#1c202c] text-slate-400 hover:text-slate-200 border border-[#222736]'
+                        : 'bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200'
+                    }`}
+                  >
+                    <span>{cat.label}</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                      isActive
+                        ? 'bg-white/20 text-white'
+                        : isDark
+                        ? 'bg-[#1e2230] text-slate-400'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            {/* Sort & Search Controls */}
+            <div className="flex items-center gap-2 shrink-0">
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as 'NEWEST' | 'SEVERITY' | 'PROXIMITY' | 'OLDEST')}
-                className={`px-3 py-1.5 border rounded-lg text-xs focus:outline-none focus:border-[#FF007F] transition-colors font-mono ${
+                className={`px-3 py-1.5 border rounded-xl text-xs focus:outline-none focus:border-[#FF007F] transition-colors font-mono ${
                   isDark
-                    ? 'bg-[#101114] border-[#282a33] text-slate-200'
-                    : 'bg-slate-50 border-slate-200 text-slate-800'
+                    ? 'bg-[#12141c] border-[#222736] text-slate-200'
+                    : 'bg-white border-slate-200 text-slate-800'
                 }`}
               >
-                <option value="PROXIMITY">Sort: Closest to You</option>
-                <option value="SEVERITY">Sort: Highest Severity</option>
-                <option value="NEWEST">Sort: Newest First</option>
-                <option value="OLDEST">Sort: Oldest First</option>
+                <option value="PROXIMITY">Sort: Nearest</option>
+                <option value="SEVERITY">Sort: Severity</option>
+                <option value="NEWEST">Sort: Newest</option>
+                <option value="OLDEST">Sort: Oldest</option>
               </select>
 
-              <div className="relative flex-1 sm:w-56">
+              <div className="relative w-36 sm:w-48">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search telemetry..."
+                  placeholder="Search..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`w-full pl-8 pr-3 py-1.5 border rounded-lg text-xs focus:outline-none focus:border-[#FF007F] transition-colors ${
+                  className={`w-full pl-8 pr-3 py-1.5 border rounded-xl text-xs focus:outline-none focus:border-[#FF007F] transition-colors font-mono ${
                     isDark
-                      ? 'bg-[#101114] border-[#282a33] text-white placeholder-slate-500'
-                      : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400'
+                      ? 'bg-[#12141c] border-[#222736] text-white placeholder-slate-500'
+                      : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
                   }`}
                 />
               </div>
             </div>
-          </div>
-
-          {/* Category Filter Buttons */}
-          <div className="flex flex-wrap items-center gap-2">
-            {CATEGORIES.map((cat) => {
-              const isActive = activeCategory === cat.id;
-              const count = categoryCounts[cat.id] || 0;
-
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setActiveCategory(cat.id)}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
-                    isActive
-                      ? 'bg-[#FF007F] text-white shadow-sm'
-                      : isDark
-                      ? 'bg-[#16171c] text-slate-400 hover:text-white border border-[#282a33]'
-                      : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
-                  }`}
-                >
-                  <span>{cat.label}</span>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                    isActive 
-                      ? 'bg-white/20 text-white' 
-                      : isDark ? 'bg-[#252833] text-slate-400' : 'bg-slate-100 text-slate-500'
-                  }`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
           </div>
 
           {/* Event Table */}

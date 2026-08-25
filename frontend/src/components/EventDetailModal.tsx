@@ -87,8 +87,8 @@ export default function EventDetailModal({ threat, onClose }: EventDetailModalPr
                   {cat.label}
                 </span>
                 <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  LIVE TELEMETRY
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  LIVE EVENT
                 </span>
               </div>
               <h2 className="text-base font-bold text-white tracking-tight mt-0.5 max-w-sm truncate">

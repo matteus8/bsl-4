@@ -23,6 +23,7 @@ import type { Topology } from 'topojson-specification';
 import worldAtlasData from 'world-atlas/land-110m.json';
 import { formatDistance, calculateDistanceKm } from '@/lib/geo';
 import { geocodeAddress, assessLocation } from '@/lib/api';
+import { ShareSectorModal } from '@/components/ShareSectorModal';
 
 interface TacticalRadarMapProps {
   threats: ThreatRecord[];
@@ -53,6 +54,7 @@ export default function TacticalRadarMap({
   const [locatingDevice, setLocatingDevice] = useState(false);
   const [assessment, setAssessment] = useState<RegionalAssessment | null>(null);
   const [isScoreExpanded, setIsScoreExpanded] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   // Pan & Zoom State
   const [zoom, setZoom] = useState(1);
@@ -507,20 +509,22 @@ export default function TacticalRadarMap({
       isDark ? 'bg-[#16171c] border-[#282a33]' : 'bg-white border-slate-200'
     } space-y-3`}>
       {/* Map Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-1">
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md bg-[#FF007F]/10 text-[#FF007F] border border-[#FF007F]/25 flex items-center gap-1.5 font-mono">
+          <div className="p-1 rounded-lg bg-[#FF007F]/10 text-[#FF007F] border border-[#FF007F]/20">
             <Globe className="w-3.5 h-3.5" />
-            2. LOCAL MAP
+          </div>
+          <span className="text-xs font-bold uppercase tracking-wider font-mono text-slate-200">
+            REGIONAL PROXIMITY RADAR
           </span>
         </div>
         <div className={`flex items-center gap-3 text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
           <span className="flex items-center gap-1.5 font-medium font-mono text-[11px]">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#FF007F] shadow-sm" />
+            <span className="w-2 h-2 rounded-full bg-[#FF007F]" />
             <span className="truncate max-w-[160px] sm:max-w-none">{userLocation.cityName?.split(' (')[0] || 'Your Region'}</span>
           </span>
           <span className="flex items-center gap-1.5 font-mono text-[11px]">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+            <span className="w-2 h-2 rounded-full bg-rose-500" />
             <span>{mappedThreats.length} Active Mapped Quakes/Alerts</span>
           </span>
         </div>
@@ -776,7 +780,7 @@ export default function TacticalRadarMap({
               type="button"
               onClick={() => setIsScoreExpanded(true)}
               title="Click to view local risk factors"
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border backdrop-blur-md shadow-xl transition-all font-mono hover:scale-105 ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border backdrop-blur-md shadow-xl transition-colors font-mono ${
                 isDark 
                   ? 'bg-[#16171c]/90 border-[#2e313d] text-white shadow-black/80' 
                   : 'bg-white/90 border-slate-200 text-slate-900 shadow-slate-400/30'
@@ -880,8 +884,18 @@ export default function TacticalRadarMap({
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-between text-[8px] font-mono text-slate-500 pt-0.5">
-                <span>⚡ Pure Haversine distance model</span>
+              <div className="flex items-center justify-between text-[8px] font-mono text-slate-500 pt-1 border-t border-slate-800/60">
+                <button
+                  type="button"
+                  onClick={() => setIsShareModalOpen(true)}
+                  className="flex items-center gap-1 text-[9px] font-bold text-slate-200 hover:text-white transition-all bg-black/40 hover:bg-black px-2 py-0.5 rounded-lg border border-slate-700 hover:border-slate-500"
+                >
+                  <svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                  <span>Share on 𝕏</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setIsScoreExpanded(false)}
@@ -893,6 +907,16 @@ export default function TacticalRadarMap({
             </div>
           )}
         </div>
+
+        {/* Share Sector Clearance Modal */}
+        <ShareSectorModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          userLocation={userLocation}
+          localScore={localSectorStats.score}
+          localLevel={localSectorStats.level}
+          isDark={isDark}
+        />
       </div>
     </div>
   );

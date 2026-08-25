@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { ThreatRecord } from '@/types/threats';
-import { Orbit, Flame, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react';
+import { Orbit, Flame, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface OrbitalSpaceWatchProps {
   threats: ThreatRecord[];
@@ -91,58 +91,22 @@ export default function OrbitalSpaceWatch({
   };
 
   return (
-    <section className={`border rounded-2xl p-5 sm:p-6 relative overflow-hidden transition-all ${
+    <section className={`border rounded-2xl p-5 sm:p-6 transition-all ${
       isDark
-        ? 'bg-[#0e1017] border-[#252a38] text-white shadow-xl'
-        : 'bg-[#f8fafc] border-slate-200 text-slate-900 shadow-sm'
+        ? 'bg-[#12141a] border-[#232733] text-white shadow-sm'
+        : 'bg-white border-slate-200 text-slate-900 shadow-sm'
     }`}>
-      {/* Subtle Starry / Radar Grid Background Pattern */}
-      <div 
-        className="absolute inset-0 opacity-20 pointer-events-none"
-        style={{
-          backgroundImage: `radial-gradient(${isDark ? '#a855f7' : '#9333ea'} 1px, transparent 1px), radial-gradient(${isDark ? '#38bdf8' : '#0284c7'} 1px, transparent 1px)`,
-          backgroundSize: '32px 32px',
-          backgroundPosition: '0 0, 16px 16px',
-        }}
-      />
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl pointer-events-none" />
-
-      {/* Header */}
-      <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[#282a33]/80">
-        <div className="flex items-center gap-2.5">
-          <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md bg-purple-500/15 text-purple-400 border border-purple-500/30 flex items-center gap-1.5 font-mono">
-            <Orbit className="w-3.5 h-3.5" />
-            3. ORBITAL & SPACE WATCH
-          </span>
-          <span className={`text-[11px] font-mono ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-            Cosmic & Solar Domain &bull; Zero Impact Trajectories
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 font-mono text-[11px]">
-          <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            PLANETARY DEFENSE: SECURE
-          </span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] ${
-            isDark ? 'bg-[#1a1d27] text-purple-300 border border-purple-500/20' : 'bg-purple-100 text-purple-700'
-          }`}>
-            {orbitalEvents.length} Total Logged
-          </span>
-        </div>
-      </div>
-
       {/* 2-Column Grid: Asteroids (Left) & Solar Weather (Right) */}
-      <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-5 pt-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Column 1: Near-Earth Asteroid Feed */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between px-1">
+          <div className="flex items-center justify-between px-1 pb-1 border-b border-purple-500/20">
             <div className="flex items-center gap-2 text-xs font-bold font-mono uppercase tracking-wider text-purple-400">
-              <Orbit className="w-4 h-4" />
-              <span>NASA NeoWs Asteroid Approaches</span>
+              <Orbit className="w-3.5 h-3.5" />
+              <span>NASA NeoWs Asteroids</span>
             </div>
             <span className="text-[10px] font-mono text-slate-400">
-              Ranked by Closest Flyby ({displayedAsteroids.length} of {asteroidEvents.length})
+              Closest Flybys ({displayedAsteroids.length} of {asteroidEvents.length})
             </span>
           </div>
 
@@ -245,13 +209,13 @@ export default function OrbitalSpaceWatch({
 
         {/* Column 2: Space Weather / Solar Telemetry */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between px-1">
+          <div className="flex items-center justify-between px-1 pb-1 border-b border-amber-500/20">
             <div className="flex items-center gap-2 text-xs font-bold font-mono uppercase tracking-wider text-amber-400">
-              <Flame className="w-4 h-4" />
-              <span>NASA DONKI Solar & Space Weather</span>
+              <Flame className="w-3.5 h-3.5" />
+              <span>NASA DONKI Solar Alerts</span>
             </div>
             <span className="text-[10px] font-mono text-slate-400">
-              Latest Solar Events ({displayedSolar.length} of {spaceWeatherEvents.length})
+              Solar Activity ({displayedSolar.length} of {spaceWeatherEvents.length})
             </span>
           </div>
 
