@@ -8,9 +8,9 @@ on:
 
 # ==============================================================================
 # Feature Toggles & Global Configuration
-# Set any toggle to 'true' or 'false' to enable/disable that specific job.
 # ==============================================================================
 env:
+  RUN_SECURITY_GATE: "true"        # Toggle: Run SAST & Dependency Security Audit Gate
   DEPLOY_FRONTEND: "true"          # Toggle: Deploy Next.js frontend to S3 & CloudFront
   DEPLOY_INGESTOR_WORKER: "true"   # Toggle: Package & deploy bsl4-ingestor Lambda
   DEPLOY_AI_WORKER: "true"         # Toggle: Package & deploy bsl4-ai-editor Lambda
@@ -23,11 +23,80 @@ env:
   AI_EDITOR_FUNCTION_NAME: "bsl4-ai-editor"
 
 jobs:
-  # ----------------------------------------------------------------------------
+  # ============================================================================
+  # GATE 0: SAST & Security Quality Analysis
+  # ============================================================================
+  security-and-quality:
+    name: Security & SAST Quality Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        if: env.RUN_SECURITY_GATE == 'true'
+
+      # -----------------------------------------------------------------------
+      # Python SAST & SCA Scanning
+      # -----------------------------------------------------------------------
+      - name: Setup Python 3.12
+        if: env.RUN_SECURITY_GATE == 'true'
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install Python SAST & Audit Tools
+        if: env.RUN_SECURITY_GATE == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit flake8 pip-audit
+
+      - name: Python SAST Security Scan (Bandit)
+        if: env.RUN_SECURITY_GATE == 'true'
+        run: |
+          echo "Scanning Python codebase for Medium & High security vulnerabilities..."
+          bandit -r worker/ -ll -i
+
+      - name: Python Dependency CVE Audit (pip-audit)
+        if: env.RUN_SECURITY_GATE == 'true'
+        run: |
+          echo "Auditing Python dependencies for known CVEs..."
+          pip-audit -r worker/requirements.txt --desc on
+
+      - name: Python Syntax & Error Linting (Flake8)
+        if: env.RUN_SECURITY_GATE == 'true'
+        run: |
+          echo "Checking Python syntax and fatal errors..."
+          flake8 worker/ --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      # -----------------------------------------------------------------------
+      # Node.js & TypeScript Security / Quality Gate
+      # -----------------------------------------------------------------------
+      - name: Setup Node.js 22
+        if: env.RUN_SECURITY_GATE == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Frontend Dependency Vulnerability Audit (High/Critical)
+        if: env.RUN_SECURITY_GATE == 'true'
+        working-directory: frontend
+        run: |
+          echo "Auditing npm dependencies for High and Critical vulnerabilities..."
+          npm audit --audit-level=high
+
+      - name: TypeScript Static Type Checking
+        if: env.RUN_SECURITY_GATE == 'true'
+        working-directory: frontend
+        run: |
+          npm ci
+          npx tsc --noEmit
+
+  # ============================================================================
   # JOB 1: Deploy Next.js Static Frontend to S3 & CloudFront Edge
-  # ----------------------------------------------------------------------------
+  # ============================================================================
   deploy-frontend:
     name: Deploy Frontend to S3 & Edge
+    needs: [security-and-quality]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -81,11 +150,12 @@ jobs:
             --distribution-id "${{ env.CLOUDFRONT_DIST_ID }}" \
             --paths "/*"
 
-  # ----------------------------------------------------------------------------
+  # ============================================================================
   # JOB 2: Deploy Ingestion Worker Lambda (Python 3.12)
-  # ----------------------------------------------------------------------------
+  # ============================================================================
   deploy-ingestor:
     name: Deploy Ingestion Worker Lambda
+    needs: [security-and-quality]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -127,11 +197,12 @@ jobs:
             --function-name "${{ env.INGESTOR_FUNCTION_NAME }}" \
             --zip-file fileb://worker.zip
 
-  # ----------------------------------------------------------------------------
+  # ============================================================================
   # JOB 3: Deploy AI Editorial Verdict Worker Lambda (Python 3.12)
-  # ----------------------------------------------------------------------------
+  # ============================================================================
   deploy-ai-editor:
     name: Deploy AI Editorial Worker Lambda
+    needs: [security-and-quality]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
