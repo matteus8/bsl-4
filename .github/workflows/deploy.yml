@@ -7,8 +7,15 @@ on:
   workflow_dispatch:
 
 # ==============================================================================
-# Feature Toggles & Global Deployment Controls
-# Change any toggle to 'true' or 'false' to control what deploys on commit to main.
+# OIDC Security Permissions
+# 'id-token: write' is required for GitHub Actions to authenticate to AWS via IAM Role ARN
+# ==============================================================================
+permissions:
+  id-token: write
+  contents: read
+
+# ==============================================================================
+# Feature Toggles & Infrastructure Configuration
 # ==============================================================================
 env:
   DEPLOY_FRONTEND: "true"          # Build Next.js static export & sync to S3
@@ -16,6 +23,11 @@ env:
   DEPLOY_AI_WORKER: "true"         # Package & deploy bsl4-ai-editor Lambda
   INVALIDATE_CLOUDFRONT: "true"    # Invalidate CloudFront CDN edge cache
   AWS_REGION: "us-east-1"
+  AWS_ROLE_ARN: "arn:aws:iam::973213517498:role/BSL4GitHubActionsRole"
+  S3_BUCKET_NAME: "platformstaq.com"
+  CLOUDFRONT_DIST_ID: "E24CTJCZZ478NW"
+  INGESTOR_FUNCTION_NAME: "bsl4-ingestor"
+  AI_EDITOR_FUNCTION_NAME: "bsl4-ai-editor"
 
 jobs:
   # ----------------------------------------------------------------------------
@@ -29,19 +41,21 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # -----------------------------------------------------------------------
+      # INFRA STEP: AWS Connectivity (OIDC)
+      # -----------------------------------------------------------------------
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
 
       - name: Install Frontend Dependencies
         working-directory: frontend
@@ -55,8 +69,7 @@ jobs:
 
       - name: Sync Static Assets to Amazon S3
         run: |
-          BUCKET_NAME="${{ secrets.S3_BUCKET_NAME || 'platformstaq.com' }}"
-          aws s3 sync frontend/out/ "s3://${BUCKET_NAME}" \
+          aws s3 sync frontend/out/ "s3://${{ env.S3_BUCKET_NAME }}" \
             --delete \
             --exclude "api/*" \
             --exclude "data/*"
@@ -64,12 +77,9 @@ jobs:
       - name: Invalidate CloudFront CDN Cache
         if: env.INVALIDATE_CLOUDFRONT == 'true'
         run: |
-          DIST_ID="${{ secrets.CLOUDFRONT_DIST_ID || 'E24CTJCZZ478NW' }}"
-          if [ -n "$DIST_ID" ]; then
-            aws cloudfront create-invalidation \
-              --distribution-id "$DIST_ID" \
-              --paths "/*"
-          fi
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ env.CLOUDFRONT_DIST_ID }}" \
+            --paths "/*"
 
   # ----------------------------------------------------------------------------
   # JOB 2: Deploy Ingestion Worker Lambda (Python 3.12)
@@ -82,19 +92,21 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # -----------------------------------------------------------------------
+      # INFRA STEP: AWS Connectivity (OIDC)
+      # -----------------------------------------------------------------------
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: Setup Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'
           cache-dependency-path: worker/requirements.txt
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
 
       - name: Package Ingestion Worker
         run: |
@@ -105,9 +117,8 @@ jobs:
 
       - name: Update Lambda Function Code
         run: |
-          FUNCTION_NAME="${{ secrets.INGESTOR_FUNCTION_NAME || 'bsl4-ingestor' }}"
           aws lambda update-function-code \
-            --function-name "$FUNCTION_NAME" \
+            --function-name "${{ env.INGESTOR_FUNCTION_NAME }}" \
             --zip-file fileb://worker.zip
 
   # ----------------------------------------------------------------------------
@@ -121,19 +132,21 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # -----------------------------------------------------------------------
+      # INFRA STEP: AWS Connectivity (OIDC)
+      # -----------------------------------------------------------------------
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: Setup Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'
           cache-dependency-path: worker/requirements.txt
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
 
       - name: Package AI Editorial Worker
         run: |
@@ -144,7 +157,6 @@ jobs:
 
       - name: Update Lambda Function Code
         run: |
-          FUNCTION_NAME="${{ secrets.AI_EDITOR_FUNCTION_NAME || 'bsl4-ai-editor' }}"
           aws lambda update-function-code \
-            --function-name "$FUNCTION_NAME" \
+            --function-name "${{ env.AI_EDITOR_FUNCTION_NAME }}" \
             --zip-file fileb://ai_worker.zip
