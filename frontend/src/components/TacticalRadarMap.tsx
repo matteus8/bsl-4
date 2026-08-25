@@ -274,15 +274,17 @@ export default function TacticalRadarMap({
     setIsDragging(false);
   };
 
-  // Wheel Zoom Handler
+  // Wheel Zoom Handler - only intercepts if ctrl or meta key is held (standard map behavior)
   const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.18 : 0.85;
-    setZoom((prev) => {
-      const next = Math.min(8, Math.max(1, prev * factor));
-      if (next === 1) setPan({ x: 0, y: 0 });
-      return next;
-    });
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.18 : 0.85;
+      setZoom((prev) => {
+        const next = Math.min(8, Math.max(1, prev * factor));
+        if (next === 1) setPan({ x: 0, y: 0 });
+        return next;
+      });
+    }
   };
 
   // Touch Handlers for Mobile Pan & Pinch Zoom
@@ -514,12 +516,12 @@ export default function TacticalRadarMap({
           <span className={`text-[10px] px-2 py-0.5 rounded font-mono ${
             isDark ? 'bg-[#21242d] text-slate-400' : 'bg-slate-100 text-slate-600'
           }`}>
-            Drag to pan &bull; Scroll / Pinch to zoom &bull; Click to set target pin
+            Drag to pan &bull; Zoom controls (+ / -) &bull; Click to set target pin
           </span>
         </div>
         <div className={`flex items-center gap-3 text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
           <span className="flex items-center gap-1.5 font-medium font-mono text-[11px]">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#FF007F] shadow-sm animate-pulse" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#FF007F] shadow-sm" />
             <span className="truncate max-w-[160px] sm:max-w-none">{userLocation.cityName?.split(' (')[0] || 'Your Region'}</span>
           </span>
           <span className="flex items-center gap-1.5 font-mono text-[11px]">
@@ -540,9 +542,7 @@ export default function TacticalRadarMap({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className={`relative w-full aspect-[2/1] min-h-[320px] sm:min-h-[440px] border rounded-xl overflow-hidden flex items-center justify-center select-none ${
-          isDragging ? 'cursor-grabbing' : 'cursor-grab'
-        } ${
+        className={`relative w-full aspect-[2/1] min-h-[320px] sm:min-h-[440px] border rounded-xl overflow-hidden flex items-center justify-center select-none cursor-crosshair ${
           isDark ? 'bg-[#101114] border-[#282a33]' : 'bg-[#f1f5f9] border-slate-200'
         }`}
       >
@@ -568,36 +568,21 @@ export default function TacticalRadarMap({
               strokeLinejoin="round"
             />
 
-            {/* Threat Event Circles on Vector Map */}
+            {/* Threat Event Static Dots on Vector Map */}
             {mappedThreats.map((threat) => {
               const isHovered = hoveredThreatId === (threat.id || threat.title);
               const isHighSeverity = threat.severityScore >= 8.0;
-              const radius = isHovered ? 7 : isHighSeverity ? 5.5 : 4;
+              const radius = isHovered ? 6 : isHighSeverity ? 4.5 : 3.5;
 
               return (
                 <g key={threat.id || threat.title} className="pointer-events-auto cursor-pointer">
-                  {/* Outer Pulsing Ring */}
-                  {(isHighSeverity || isHovered) && (
-                    <circle
-                      cx={threat.mapX}
-                      cy={threat.mapY}
-                      r={radius * 2}
-                      fill="none"
-                      stroke={isHighSeverity ? '#f43f5e' : '#FF007F'}
-                      strokeWidth="1.5"
-                      opacity="0.6"
-                      className="animate-ping"
-                    />
-                  )}
-
-                  {/* Core Event Dot */}
                   <circle
                     cx={threat.mapX}
                     cy={threat.mapY}
                     r={radius}
                     fill={isHovered ? '#FF007F' : isHighSeverity ? '#f43f5e' : '#fbbf24'}
-                    stroke={isDark ? '#101114' : '#ffffff'}
-                    strokeWidth="1.2"
+                    stroke={isHovered ? '#ffffff' : isHighSeverity ? '#ffffff' : '#101114'}
+                    strokeWidth={isHovered ? 1.5 : 1}
                     onClick={(e) => {
                       e.stopPropagation();
                       onSelectThreat(threat);
@@ -609,16 +594,14 @@ export default function TacticalRadarMap({
               );
             })}
 
-            {/* User Target Pin Marker inside SVG Matrix */}
+            {/* User Target Pin Marker inside SVG Matrix: Crisp Static Marker */}
             <g
               transform={`translate(${userPinCoords.x}, ${userPinCoords.y})`}
               className="pointer-events-none transition-all duration-300"
             >
-              {/* Outer Pulse */}
-              <circle cx="0" cy="0" r="10" fill="#FF007F" opacity="0.3" className="animate-ping" />
-              {/* Pin Base */}
-              <circle cx="0" cy="0" r="6" fill="#FF007F" stroke="#ffffff" strokeWidth="2" />
-              <circle cx="0" cy="0" r="2.5" fill="#ffffff" />
+              <circle cx="0" cy="0" r="8" fill="none" stroke="#FF007F" strokeWidth="1.2" opacity="0.6" strokeDasharray="3 3" />
+              <circle cx="0" cy="0" r="4" fill="#FF007F" stroke="#ffffff" strokeWidth="1.5" />
+              <circle cx="0" cy="0" r="1.5" fill="#ffffff" />
             </g>
           </g>
         </svg>
@@ -789,8 +772,8 @@ export default function TacticalRadarMap({
           onMouseDown={(e) => e.stopPropagation()}
           className={`absolute bottom-3 right-3 z-30 transition-all duration-300 pointer-events-auto ${
             isScoreExpanded 
-              ? 'max-w-[320px] sm:max-w-[360px] w-[calc(100%-24px)]' 
-              : 'max-w-[210px] sm:max-w-[230px] w-auto'
+              ? 'max-w-[310px] sm:max-w-[340px] w-[calc(100%-24px)]' 
+              : 'max-w-[190px] sm:max-w-[210px] w-auto'
           }`}
         >
           <div className={`rounded-2xl border backdrop-blur-md shadow-2xl transition-all ${
@@ -803,32 +786,32 @@ export default function TacticalRadarMap({
               <button
                 type="button"
                 onClick={() => setIsScoreExpanded(true)}
-                className="w-full px-3 py-2 flex items-center justify-between gap-2.5 hover:opacity-90 transition-opacity text-left"
+                className="w-full px-3 py-1.5 flex items-center justify-between gap-2 hover:opacity-90 transition-opacity text-left"
               >
-                <div className="flex items-center gap-2">
-                  <Crosshair className="w-3.5 h-3.5 text-[#FF007F] shrink-0 animate-pulse" />
+                <div className="flex items-center gap-1.5">
+                  <Crosshair className="w-3.5 h-3.5 text-[#FF007F] shrink-0" />
                   <div className="flex items-baseline gap-1 font-mono">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">SECTOR:</span>
-                    <span className={`text-base font-black ${localSectorStats.colorClass}`}>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">SECTOR:</span>
+                    <span className={`text-sm font-black ${localSectorStats.colorClass}`}>
                       {localSectorStats.score.toFixed(1)}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5">
-                  <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase tracking-tight ${localSectorStats.badgeClass}`}>
+                <div className="flex items-center gap-1">
+                  <span className={`text-[8px] font-mono font-bold px-1 py-0.5 rounded border uppercase tracking-tight ${localSectorStats.badgeClass}`}>
                     {localSectorStats.level}
                   </span>
-                  <ChevronUp className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <ChevronUp className="w-3 h-3 text-slate-400 shrink-0" />
                 </div>
               </button>
             ) : (
               /* EXPANDED STATE: Full Breakdown & Integrated Local Reality Ground Status */
-              <div className="p-3.5 space-y-2.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+              <div className="p-3 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
                 {/* Header */}
                 <div className="flex items-center justify-between gap-1.5 pb-1 border-b border-[#2e313d]">
                   <div className="flex items-center gap-1.5">
-                    <Crosshair className="w-3.5 h-3.5 text-[#FF007F] animate-spin" style={{ animationDuration: '8s' }} />
+                    <Crosshair className="w-3.5 h-3.5 text-[#FF007F]" />
                     <span className="text-[10px] font-black uppercase tracking-wider font-mono text-slate-300">
                       LOCAL SECTOR TELEMETRY
                     </span>
@@ -845,26 +828,26 @@ export default function TacticalRadarMap({
                 </div>
 
                 {/* Score & Target Summary Row */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-baseline gap-1 font-mono">
-                    <span className={`text-2xl font-black ${localSectorStats.colorClass}`}>
+                <div className="flex items-center justify-between gap-2 font-mono">
+                  <div className="flex items-baseline gap-1">
+                    <span className={`text-xl font-black ${localSectorStats.colorClass}`}>
                       {localSectorStats.score.toFixed(1)}
                     </span>
                     <span className="text-[10px] text-slate-500">/ 10</span>
-                    <span className={`ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase ${localSectorStats.badgeClass}`}>
+                    <span className={`ml-1.5 text-[8px] font-bold px-1.5 py-0.2 rounded border uppercase ${localSectorStats.badgeClass}`}>
                       {localSectorStats.level}
                     </span>
                   </div>
-                  <span className="text-[10px] font-mono text-slate-400 truncate max-w-[130px]" title={userLocation.cityName}>
+                  <span className="text-[10px] text-slate-400 truncate max-w-[120px]" title={userLocation.cityName}>
                     {userLocation.cityName?.split(',')[0] || 'Target'}
                   </span>
                 </div>
 
                 {/* Integrated Ground Reality & Nearest Earthquake Status */}
-                <div className={`p-2.5 rounded-xl border flex items-start gap-2 text-[10px] font-mono ${
+                <div className={`p-2 rounded-xl border flex items-start gap-1.5 text-[9px] font-mono leading-relaxed ${
                   isDark ? 'bg-[#101114] border-[#282a33] text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
                 }`}>
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0 mt-0.5" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 mt-1" />
                   <div>
                     {assessment?.nearbySeismic ? (
                       <>
@@ -881,18 +864,18 @@ export default function TacticalRadarMap({
                   </div>
                 </div>
 
-                {/* Itemized Contributing Factors List */}
-                <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
-                  {localSectorStats.factors.map((f, idx) => (
+                {/* Itemized Contributing Factors List - Fits without scrolling */}
+                <div className="space-y-1">
+                  {localSectorStats.factors.slice(0, 3).map((f, idx) => (
                     <div
                       key={idx}
-                      className={`p-2 rounded-xl border text-[10px] font-mono ${
+                      className={`p-1.5 rounded-xl border text-[9px] font-mono ${
                         isDark ? 'bg-[#101114] border-[#282a33]' : 'bg-slate-50 border-slate-200'
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-1.5 mb-0.5">
-                        <span className="font-bold text-slate-200 truncate">{f.title}</span>
-                        <span className={`px-1.5 py-0.2 rounded font-black text-[9px] shrink-0 ${
+                      <div className="flex items-center justify-between gap-1 mb-0.5">
+                        <span className="font-bold text-slate-200 truncate max-w-[180px]">{f.title}</span>
+                        <span className={`px-1 rounded font-black text-[8px] shrink-0 ${
                           f.points >= 3.0
                             ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                             : f.points >= 1.0
@@ -902,19 +885,19 @@ export default function TacticalRadarMap({
                           +{f.points.toFixed(1)} pts
                         </span>
                       </div>
-                      <div className="flex items-center justify-between text-[9px] text-slate-400">
-                        <span>{f.detail}</span>
+                      <div className="flex items-center justify-between text-[8px] text-slate-400">
+                        <span className="truncate max-w-[160px]">{f.detail}</span>
                         {f.distanceKm !== undefined && (
-                          <span className="text-[#FF007F] font-semibold">{f.distanceKm.toLocaleString()} km</span>
+                          <span className="text-[#FF007F] font-semibold shrink-0">{f.distanceKm.toLocaleString()} km</span>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
 
-                {/* Footer with Close action */}
-                <div className="flex items-center justify-between text-[9px] font-mono text-slate-500 pt-1">
-                  <span>⚡ Pure Haversine client model</span>
+                {/* Footer */}
+                <div className="flex items-center justify-between text-[8px] font-mono text-slate-500 pt-0.5">
+                  <span>⚡ Pure Haversine distance model</span>
                   <button
                     type="button"
                     onClick={() => setIsScoreExpanded(false)}
