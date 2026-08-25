@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { ThreatRecord, ThreatCategory, UserLocation, GeocodedLocation, RegionalAssessment } from '@/types/threats';
-import { Globe, Layers, Search, Navigation, MapPin, Loader2, X, Crosshair } from 'lucide-react';
+import { Globe, Layers, Search, Navigation, MapPin, Loader2, X, Crosshair, ChevronUp, ChevronDown } from 'lucide-react';
 import { geoNaturalEarth1, geoPath } from 'd3-geo';
 import { feature } from 'topojson-client';
 import type { Topology } from 'topojson-specification';
@@ -38,6 +38,7 @@ export default function TacticalRadarMap({
   const [showDropdown, setShowDropdown] = useState(false);
   const [locatingDevice, setLocatingDevice] = useState(false);
   const [assessment, setAssessment] = useState<RegionalAssessment | null>(null);
+  const [isScoreExpanded, setIsScoreExpanded] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
 
@@ -232,10 +233,9 @@ export default function TacticalRadarMap({
       .filter((t): t is ThreatRecord & { mapX: number; mapY: number } => t !== null);
   }, [threats, projection, activeCategory]);
 
-  // Real-time pure mathematical local sector risk score
+  // Real-time pure mathematical local sector risk score and factor breakdown
   const localSectorStats = useMemo(() => {
-    let nearestDistanceKm = 999999;
-    let nearestEvent: ThreatRecord | null = null;
+    const physicalEvents: { threat: ThreatRecord; distanceKm: number }[] = [];
 
     threats.forEach((t) => {
       if (t.threatType === 'EARTHQUAKE' || t.threatType === 'TERRESTRIAL_WEATHER') {
@@ -253,50 +253,109 @@ export default function TacticalRadarMap({
           }
         }
 
-        if (dKm !== undefined && dKm < nearestDistanceKm) {
-          nearestDistanceKm = dKm;
-          nearestEvent = t;
+        if (dKm !== undefined) {
+          physicalEvents.push({ threat: t, distanceKm: dKm });
         }
       }
     });
 
-    // Pure mathematical risk scale (1.0 to 10.0) based on proximity
-    let score = 1.0;
+    // Sort by proximity
+    physicalEvents.sort((a, b) => a.distanceKm - b.distanceKm);
+
+    const nearestEvent = physicalEvents.length > 0 ? physicalEvents[0].threat : null;
+    const nearestDistanceKm = physicalEvents.length > 0 ? physicalEvents[0].distanceKm : 999999;
+
+    // Breakdown score factors
+    const factors: {
+      category: 'BASE' | 'SEISMIC' | 'WEATHER';
+      title: string;
+      points: number;
+      distanceKm?: number;
+      detail: string;
+    }[] = [];
+
+    // Factor 1: Planetary baseline
+    factors.push({
+      category: 'BASE',
+      title: 'Planetary Equilibrium Baseline',
+      points: 1.0,
+      detail: 'Standard background geodynamic noise & orbital baseline',
+    });
+
+    let calculatedScore = 1.0;
+
+    // Evaluate top physical events
+    const topNearby = physicalEvents.slice(0, 3);
+    topNearby.forEach((item) => {
+      const d = item.distanceKm;
+      let pts = 0;
+      let impactNote = '';
+
+      if (d < 150) {
+        pts = Math.round((4.5 + (150 - d) / 30) * 10) / 10;
+        impactNote = 'Immediate impact radius (< 150 km)';
+      } else if (d < 500) {
+        pts = Math.round((2.0 + (500 - d) / 150) * 10) / 10;
+        impactNote = 'Regional shockwave / monitoring zone';
+      } else if (d < 1500) {
+        pts = Math.round((0.5 + (1500 - d) / 2000) * 10) / 10;
+        impactNote = 'Distant peripheral seismic reading';
+      } else {
+        pts = 0.2;
+        impactNote = 'Negligible continental distance (> 1,500 km)';
+      }
+
+      calculatedScore += pts;
+      factors.push({
+        category: item.threat.threatType === 'EARTHQUAKE' ? 'SEISMIC' : 'WEATHER',
+        title: item.threat.title.replace(/^M\s*[\d.]+\s*-\s*/i, ''),
+        points: pts,
+        distanceKm: Math.round(d),
+        detail: impactNote,
+      });
+    });
+
+    if (topNearby.length === 0) {
+      factors.push({
+        category: 'SEISMIC',
+        title: 'Zero Active Seismic / Storm Hazards',
+        points: 0.0,
+        detail: 'No active M4.5+ earthquakes or storm warnings in sensor range',
+      });
+    }
+
+    const finalScore = Math.min(10.0, Math.round(calculatedScore * 10) / 10);
+
     let level = 'NOMINAL';
     let colorClass = 'text-emerald-400';
     let badgeClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
 
-    if (nearestDistanceKm < 150) {
-      score = Math.min(9.8, 8.5 + (150 - nearestDistanceKm) / 100);
-      level = 'IMMEDIATE HAZARD';
+    if (finalScore >= 7.5) {
+      level = 'CRITICAL ZONE';
       colorClass = 'text-rose-500';
       badgeClass = 'bg-rose-500/10 text-rose-400 border-rose-500/40';
-    } else if (nearestDistanceKm < 500) {
-      score = 5.5 + ((500 - nearestDistanceKm) / 350) * 2.5;
+    } else if (finalScore >= 4.5) {
       level = 'REGIONAL ALERT';
       colorClass = 'text-amber-400';
       badgeClass = 'bg-amber-500/10 text-amber-400 border-amber-500/40';
-    } else if (nearestDistanceKm < 1500) {
-      score = 2.4 + ((1500 - nearestDistanceKm) / 1000) * 2.0;
+    } else if (finalScore >= 2.5) {
       level = 'PERIPHERAL';
       colorClass = 'text-sky-400';
       badgeClass = 'bg-sky-500/10 text-sky-400 border-sky-500/30';
     } else {
-      score = 1.2;
       level = 'SAFE & NOMINAL';
       colorClass = 'text-emerald-400';
       badgeClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
     }
 
-    score = Math.round(score * 10) / 10;
-
     return {
-      score,
+      score: finalScore,
       level,
       colorClass,
       badgeClass,
       nearestDistanceKm: Math.round(nearestDistanceKm),
       nearestEvent: nearestEvent as ThreatRecord | null,
+      factors,
     };
   }, [threats, userLocation.latitude, userLocation.longitude]);
 
@@ -553,47 +612,138 @@ export default function TacticalRadarMap({
           </div>
         </div>
 
-        {/* Bottom-Right Local Sector Score HUD */}
+        {/* Bottom-Right Local Sector Score HUD & Pop-out Breakdown */}
         <div 
           onClick={(e) => e.stopPropagation()}
-          className={`absolute bottom-3 right-3 z-30 max-w-[240px] sm:max-w-[270px] w-full p-2.5 sm:p-3 rounded-2xl border backdrop-blur-md shadow-2xl transition-all pointer-events-auto ${
-            isDark 
-              ? 'bg-[#16171c]/90 border-[#2e313d] shadow-black/70 text-white' 
-              : 'bg-white/95 border-slate-200 shadow-slate-400/20 text-slate-900'
+          className={`absolute bottom-3 right-3 z-30 transition-all duration-300 pointer-events-auto ${
+            isScoreExpanded 
+              ? 'max-w-[320px] sm:max-w-[360px] w-[calc(100%-24px)]' 
+              : 'max-w-[240px] sm:max-w-[270px] w-full'
           }`}
         >
-          <div className="flex items-center justify-between gap-1.5 mb-1">
-            <div className="flex items-center gap-1.5">
-              <Crosshair className="w-3.5 h-3.5 text-[#FF007F] animate-spin" style={{ animationDuration: '8s' }} />
-              <span className="text-[10px] font-black uppercase tracking-wider font-mono text-slate-400">
-                LOCAL SECTOR SCORE
-              </span>
-            </div>
-            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase tracking-tight ${localSectorStats.badgeClass}`}>
-              {localSectorStats.level}
-            </span>
-          </div>
-
-          <div className="flex items-baseline justify-between gap-2">
-            <div className="flex items-baseline gap-1">
-              <span className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${localSectorStats.colorClass}`}>
-                {localSectorStats.score.toFixed(1)}
-              </span>
-              <span className="text-[10px] font-mono text-slate-500">/ 10</span>
-            </div>
-
-            <div className="text-right">
-              <div className="text-[10px] font-mono text-slate-300">
-                {localSectorStats.nearestDistanceKm < 50000 ? (
-                  <span className="font-bold text-[#FF007F]">{formatDistance(localSectorStats.nearestDistanceKm)}</span>
-                ) : (
-                  'No local events'
-                )}
+          <div className={`p-3 rounded-2xl border backdrop-blur-md shadow-2xl transition-all ${
+            isDark 
+              ? 'bg-[#16171c]/95 border-[#2e313d] shadow-black/80 text-white' 
+              : 'bg-white/95 border-slate-200 shadow-slate-400/30 text-slate-900'
+          }`}>
+            {/* Header */}
+            <div className="flex items-center justify-between gap-1.5 mb-1.5">
+              <div className="flex items-center gap-1.5">
+                <Crosshair className="w-3.5 h-3.5 text-[#FF007F] animate-spin" style={{ animationDuration: '8s' }} />
+                <span className="text-[10px] font-black uppercase tracking-wider font-mono text-slate-400">
+                  {isScoreExpanded ? 'LOCAL RISK BREAKDOWN' : 'LOCAL SECTOR SCORE'}
+                </span>
               </div>
-              <div className="text-[9px] font-mono text-slate-500 truncate max-w-[130px]" title={localSectorStats.nearestEvent?.title || 'Ground nominal'}>
-                {localSectorStats.nearestEvent ? localSectorStats.nearestEvent.title.replace(/^M\s*[\d.]+\s*-\s*/i, '') : 'Ground nominal'}
+              <div className="flex items-center gap-1">
+                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase tracking-tight ${localSectorStats.badgeClass}`}>
+                  {localSectorStats.level}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsScoreExpanded(!isScoreExpanded)}
+                  title={isScoreExpanded ? 'Collapse breakdown' : 'View score factors'}
+                  className={`p-1 rounded-lg border text-slate-400 hover:text-white transition-colors ${
+                    isDark ? 'bg-[#21242e] border-[#2e313d] hover:bg-[#2c303d]' : 'bg-slate-100 border-slate-200 hover:bg-slate-200'
+                  }`}
+                >
+                  {isScoreExpanded ? (
+                    <ChevronDown className="w-3 h-3 text-slate-300" />
+                  ) : (
+                    <ChevronUp className="w-3 h-3 text-[#FF007F]" />
+                  )}
+                </button>
               </div>
             </div>
+
+            {/* Score & Quick Metric Row */}
+            <div className="flex items-baseline justify-between gap-2">
+              <div className="flex items-baseline gap-1">
+                <span className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${localSectorStats.colorClass}`}>
+                  {localSectorStats.score.toFixed(1)}
+                </span>
+                <span className="text-[10px] font-mono text-slate-500">/ 10</span>
+              </div>
+
+              <div className="text-right">
+                <div className="text-[10px] font-mono text-slate-300">
+                  {localSectorStats.nearestDistanceKm < 50000 ? (
+                    <span className="font-bold text-[#FF007F]">{formatDistance(localSectorStats.nearestDistanceKm)}</span>
+                  ) : (
+                    'No local events'
+                  )}
+                </div>
+                <div className="text-[9px] font-mono text-slate-500 truncate max-w-[130px]" title={localSectorStats.nearestEvent?.title || 'Ground nominal'}>
+                  {localSectorStats.nearestEvent ? localSectorStats.nearestEvent.title.replace(/^M\s*[\d.]+\s*-\s*/i, '') : 'Ground nominal'}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Toggle Link in collapsed mode */}
+            {!isScoreExpanded && (
+              <button
+                type="button"
+                onClick={() => setIsScoreExpanded(true)}
+                className="mt-2 w-full text-left text-[9px] font-mono text-[#FF007F] hover:underline flex items-center justify-between border-t border-[#2e313d]/40 pt-1.5"
+              >
+                <span>Why this score?</span>
+                <span className="text-slate-400">View factors ▾</span>
+              </button>
+            )}
+
+            {/* Expanded Detailed Pop-out Breakdown */}
+            {isScoreExpanded && (
+              <div className="mt-3 pt-2.5 border-t border-[#2e313d] space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 pb-1 border-b border-[#282a33]">
+                  <span>Target Sector:</span>
+                  <span className="font-bold text-slate-200 truncate max-w-[180px]">
+                    {userLocation.cityName?.split(',')[0] || 'Selected Target'}
+                  </span>
+                </div>
+
+                {/* Contributing Factor Items */}
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {localSectorStats.factors.map((f, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-2 rounded-xl border text-[10px] font-mono transition-colors ${
+                        isDark ? 'bg-[#101114] border-[#282a33]' : 'bg-slate-50 border-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-1.5 mb-0.5">
+                        <span className="font-bold text-slate-200 truncate">{f.title}</span>
+                        <span className={`px-1.5 py-0.2 rounded font-black text-[9px] shrink-0 ${
+                          f.points >= 3.0
+                            ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                            : f.points >= 1.0
+                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                            : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                        }`}>
+                          +{f.points.toFixed(1)} pts
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[9px] text-slate-400">
+                        <span>{f.detail}</span>
+                        {f.distanceKm !== undefined && (
+                          <span className="text-[#FF007F] font-semibold">{f.distanceKm.toLocaleString()} km</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Math Transparency Footer */}
+                <div className="flex items-center justify-between text-[9px] font-mono text-slate-500 pt-1">
+                  <span>⚡ Pure Haversine distance model</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsScoreExpanded(false)}
+                    className="text-[#FF007F] hover:underline font-bold"
+                  >
+                    Close ▴
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
