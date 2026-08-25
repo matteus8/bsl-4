@@ -375,6 +375,30 @@ def save_editorial_verdict(conn, verdict_data, evidence_summary, model_used):
     return verdict_id
 
 
+def invalidate_cloudfront(paths=None):
+    """Trigger CloudFront cache invalidation so the edge instantly serves fresh snapshots."""
+    dist_id = os.environ.get("CLOUDFRONT_DIST_ID", "E24CTJCZZ478NW")
+    if not dist_id:
+        return
+    if paths is None:
+        paths = ["/data/*", "/api/*"]
+    try:
+        cf = boto3.client("cloudfront", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+        cf.create_invalidation(
+            DistributionId=dist_id,
+            InvalidationBatch={
+                "Paths": {
+                    "Quantity": len(paths),
+                    "Items": paths
+                },
+                "CallerReference": f"ai-editor-{int(datetime.now(timezone.utc).timestamp())}"
+            }
+        )
+        logger.info(f">>> CloudFront cache invalidated for {paths} on distribution {dist_id}")
+    except Exception as e:
+        logger.warning(f"Could not invalidate CloudFront cache: {e}")
+
+
 def publish_s3_snapshot(verdict_data, evidence_summary, model_used, evidence_list):
     """Publish static JSON snapshot files to S3 so frontend can load them securely with zero credentials."""
     bucket_name = os.environ.get("S3_BUCKET_NAME", "platformstaq.com")
@@ -398,7 +422,7 @@ def publish_s3_snapshot(verdict_data, evidence_summary, model_used, evidence_lis
                 Key=key_path,
                 Body=json.dumps(verdict_payload, indent=2).encode("utf-8"),
                 ContentType="application/json",
-                CacheControl="public, max-age=60, s-maxage=300"
+                CacheControl="no-cache, no-store, max-age=0, must-revalidate"
             )
         logger.info(f">>> Published s3://{bucket_name}/data/editorial-verdict.json (Panic: {verdict_payload['panicIndex']})")
 
@@ -421,9 +445,12 @@ def publish_s3_snapshot(verdict_data, evidence_summary, model_used, evidence_lis
                 Key=key_path,
                 Body=json.dumps(threats_payload, indent=2).encode("utf-8"),
                 ContentType="application/json",
-                CacheControl="public, max-age=60, s-maxage=300"
+                CacheControl="no-cache, no-store, max-age=0, must-revalidate"
             )
         logger.info(f">>> Published s3://{bucket_name}/data/threats.json ({len(threats_payload)} records)")
+
+        # 3. Automatically invalidate CloudFront cache for instant edge propagation
+        invalidate_cloudfront(["/data/*", "/api/*"])
     except Exception as e:
         logger.warning(f"Could not publish JSON snapshots to S3: {e}")
 

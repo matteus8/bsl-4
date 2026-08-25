@@ -3,9 +3,10 @@ import { ThreatRecord } from '@/types/threats';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? '' : 'http://localhost:8080');
 
 export async function fetchLatestThreats(): Promise<ThreatRecord[]> {
+  const ts = Date.now();
   try {
     // 1. Try S3 edge JSON snapshot first
-    const res = await fetch(`${API_BASE_URL}/data/threats.json`, {
+    const res = await fetch(`${API_BASE_URL}/data/threats.json?t=${ts}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       cache: 'no-store'
@@ -20,7 +21,7 @@ export async function fetchLatestThreats(): Promise<ThreatRecord[]> {
 
   try {
     // 2. Try backend API endpoint
-    const res = await fetch(`${API_BASE_URL}/api/threats/latest`, {
+    const res = await fetch(`${API_BASE_URL}/api/threats/latest?t=${ts}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       cache: 'no-store'
@@ -37,9 +38,10 @@ export async function fetchLatestThreats(): Promise<ThreatRecord[]> {
 }
 
 export async function fetchNearbyThreats(lat: number, lon: number, days = 30): Promise<ThreatRecord[]> {
+  const ts = Date.now();
   try {
     // 1. Try S3 edge JSON snapshot first
-    const res = await fetch(`${API_BASE_URL}/data/threats.json`, {
+    const res = await fetch(`${API_BASE_URL}/data/threats.json?t=${ts}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       cache: 'no-store'
@@ -53,7 +55,7 @@ export async function fetchNearbyThreats(lat: number, lon: number, days = 30): P
   }
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/threats/nearby?lat=${lat}&lon=${lon}&days=${days}&physicalLimit=70&globalLimit=30`, {
+    const res = await fetch(`${API_BASE_URL}/api/threats/nearby?lat=${lat}&lon=${lon}&days=${days}&physicalLimit=70&globalLimit=30&t=${ts}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       cache: 'no-store'
@@ -81,9 +83,10 @@ export interface EditorialVerdictResponse {
 }
 
 export async function fetchLatestEditorialVerdict(): Promise<EditorialVerdictResponse | null> {
+  const ts = Date.now();
   // 1. Try S3 edge snapshot first (100% secure, zero database credentials needed)
   try {
-    const res = await fetch(`${API_BASE_URL}/data/editorial-verdict.json`, {
+    const res = await fetch(`${API_BASE_URL}/data/editorial-verdict.json?t=${ts}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       cache: 'no-store'
@@ -100,7 +103,7 @@ export async function fetchLatestEditorialVerdict(): Promise<EditorialVerdictRes
 
   // 2. Try backend API endpoint
   try {
-    const res = await fetch(`${API_BASE_URL}/api/threats/editorial/latest`, {
+    const res = await fetch(`${API_BASE_URL}/api/threats/editorial/latest?t=${ts}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       cache: 'no-store'
