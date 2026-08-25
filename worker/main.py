@@ -250,19 +250,31 @@ def fetch_asteroids():
                 diam_map = ast.get("estimated_diameter", {}).get("meters", {})
                 max_diam = float(diam_map.get("estimated_diameter_max", 50.0))
                 
-                severity = 9.5 if is_haz else min(max_diam / 10.0, 5.0)
+                cad = ast.get("close_approach_data", [])
+                miss_km = 4200000.0
+                velocity_kph = 45000.0
+                if cad:
+                    try:
+                        miss_km = float(cad[0].get("miss_distance", {}).get("kilometers", 4200000.0))
+                        velocity_kph = float(cad[0].get("relative_velocity", {}).get("kilometers_per_hour", 45000.0))
+                    except Exception:
+                        pass
+
+                severity = 9.5 if is_haz else min(max(max_diam / 20.0, 2.0), 6.5)
                 severity = round(severity, 2)
                 
                 metadata = {
-                    "max_width_meters": max_diam,
-                    "is_hazardous": is_haz
+                    "max_width_meters": round(max_diam, 1),
+                    "is_hazardous": is_haz,
+                    "miss_distance_km": round(miss_km, 1),
+                    "velocity_kph": round(velocity_kph, 1)
                 }
                 
                 records.append({
                     "threat_type": "ASTEROID",
                     "title": name,
                     "severity_score": severity,
-                    "description": f"Hazardous: {is_haz} | Max Diameter: {max_diam:.1f} meters",
+                    "description": f"Hazardous: {is_haz} | Max Diameter: {max_diam:.1f}m | Miss Distance: {miss_km/1e6:.2f}M km",
                     "metadata": json.dumps(metadata),
                     "recorded_at": f"{date_str} 00:00:00"
                 })

@@ -114,11 +114,16 @@ def ensure_editorial_table(conn):
     logger.info(">>> Verified public.ai_editorial_verdicts table schema.")
 
 
-def fetch_recent_evidence(conn, limit=60):
-    """Fetch active recent hazard telemetry records from public.threat_records."""
+def fetch_recent_evidence(conn, limit=200):
+    """Fetch active recent hazard telemetry records from public.threat_records across all threat categories."""
     query = """
     SELECT id, threat_type, title, severity_score, description, metadata, recorded_at
-    FROM public.threat_records
+    FROM (
+        SELECT id, threat_type, title, severity_score, description, metadata, recorded_at,
+               ROW_NUMBER() OVER (PARTITION BY threat_type ORDER BY recorded_at DESC) as rn
+        FROM public.threat_records
+    ) ranked
+    WHERE rn <= 40
     ORDER BY recorded_at DESC
     LIMIT :limit
     """
@@ -465,7 +470,7 @@ def run_ai_editorial_pipeline():
         ensure_editorial_table(conn)
 
         # 1. Check evidence presence first
-        evidence = fetch_recent_evidence(conn, limit=60)
+        evidence = fetch_recent_evidence(conn, limit=200)
         if not evidence:
             logger.warning(">>> No threat records found in public.threat_records. Ingestion worker must run first.")
             return {
