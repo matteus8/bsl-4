@@ -1,8 +1,22 @@
 'use client';
 
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { ThreatRecord, ThreatCategory, UserLocation, GeocodedLocation, RegionalAssessment } from '@/types/threats';
-import { Globe, Layers, Search, Navigation, MapPin, Loader2, X, Crosshair, ChevronUp, ChevronDown } from 'lucide-react';
+import { 
+  Globe, 
+  Layers, 
+  Search, 
+  Navigation, 
+  MapPin, 
+  Loader2, 
+  X, 
+  Crosshair, 
+  ChevronUp, 
+  ChevronDown, 
+  Plus, 
+  Minus, 
+  RotateCcw 
+} from 'lucide-react';
 import { geoNaturalEarth1, geoPath } from 'd3-geo';
 import { feature } from 'topojson-client';
 import type { Topology } from 'topojson-specification';
@@ -39,8 +53,19 @@ export default function TacticalRadarMap({
   const [locatingDevice, setLocatingDevice] = useState(false);
   const [assessment, setAssessment] = useState<RegionalAssessment | null>(null);
   const [isScoreExpanded, setIsScoreExpanded] = useState(false);
+
+  // Pan & Zoom State
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+
   const dropdownRef = useRef<HTMLDivElement>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const dragInitialPanRef = useRef({ x: 0, y: 0 });
+  const hasMovedRef = useRef(false);
+  const touchStartDistRef = useRef(0);
+  const touchStartZoomRef = useRef(1);
 
   // Generate real Natural Earth world map SVG path
   const { landPath, projection } = useMemo(() => {
@@ -60,10 +85,10 @@ export default function TacticalRadarMap({
     return { landPath: path, projection: proj };
   }, []);
 
-  // Compute user pin coordinates on real map
+  // Compute user pin coordinates on base map
   const userPinCoords = useMemo(() => {
     const pt = projection([userLocation.longitude, userLocation.latitude]);
-    return pt ? { x: pt[0], y: pt[1] } : { x: 200, y: 150 };
+    return pt ? { x: pt[0], y: pt[1] } : { x: 500, y: 250 };
   }, [projection, userLocation]);
 
   // Debounced geocoding search
@@ -177,24 +202,135 @@ export default function TacticalRadarMap({
     );
   };
 
-  // Map Click to Set Location (Google Maps style)
-  const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  // Zoom controls
+  const handleZoomIn = () => setZoom((prev) => Math.min(8, prev * 1.4));
+  const handleZoomOut = () => {
+    setZoom((prev) => {
+      const next = Math.max(1, prev / 1.4);
+      if (next === 1) setPan({ x: 0, y: 0 });
+      return next;
+    });
+  };
+  const handleResetView = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
+  // Convert screen click to geographical pin placement accounting for pan & zoom
+  const dropPinAtScreenPoint = useCallback((clientX: number, clientY: number) => {
     if (!mapContainerRef.current) return;
     const rect = mapContainerRef.current.getBoundingClientRect();
-    const clickX = ((e.clientX - rect.left) / rect.width) * 1000;
-    const clickY = ((e.clientY - rect.top) / rect.height) * 500;
+    const rawX = ((clientX - rect.left) / rect.width) * 1000;
+    const rawY = ((clientY - rect.top) / rect.height) * 500;
 
-    const coords = projection.invert?.([clickX, clickY]);
+    // Invert zoom and pan matrix: mapX = (rawX - 500 - pan.x) / zoom + 500
+    const mapX = (rawX - 500 - pan.x) / zoom + 500;
+    const mapY = (rawY - 250 - pan.y) / zoom + 250;
+
+    const coords = projection.invert?.([mapX, mapY]);
     if (coords && !isNaN(coords[0]) && !isNaN(coords[1])) {
       const lon = Math.round(coords[0] * 100) / 100;
       const lat = Math.round(coords[1] * 100) / 100;
       setUserLocation({
         latitude: lat,
         longitude: lon,
-        cityName: `Map Pin (${lat.toFixed(2)}°, ${lon.toFixed(2)}°)`,
+        cityName: `Map Pin (${lat.toFixed(1)}°, ${lon.toFixed(1)}°)`,
         isAutoDetected: false,
       });
       setQuery('');
+    }
+  }, [pan.x, pan.y, zoom, projection, setUserLocation]);
+
+  // Mouse Drag / Pan Handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    dragInitialPanRef.current = { ...pan };
+    hasMovedRef.current = false;
+    setIsDragging(true);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+    if (Math.hypot(dx, dy) > 4) {
+      hasMovedRef.current = true;
+    }
+    setPan({
+      x: dragInitialPanRef.current.x + dx,
+      y: dragInitialPanRef.current.y + dy,
+    });
+  };
+
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (!hasMovedRef.current && isDragging) {
+      dropPinAtScreenPoint(e.clientX, e.clientY);
+    }
+    setIsDragging(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
+  };
+
+  // Wheel Zoom Handler
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.18 : 0.85;
+    setZoom((prev) => {
+      const next = Math.min(8, Math.max(1, prev * factor));
+      if (next === 1) setPan({ x: 0, y: 0 });
+      return next;
+    });
+  };
+
+  // Touch Handlers for Mobile Pan & Pinch Zoom
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      dragInitialPanRef.current = { ...pan };
+      hasMovedRef.current = false;
+      setIsDragging(true);
+    } else if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchStartDistRef.current = dist;
+      touchStartZoomRef.current = zoom;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 1 && isDragging) {
+      const dx = e.touches[0].clientX - dragStartRef.current.x;
+      const dy = e.touches[0].clientY - dragStartRef.current.y;
+      if (Math.hypot(dx, dy) > 6) {
+        hasMovedRef.current = true;
+      }
+      setPan({
+        x: dragInitialPanRef.current.x + dx,
+        y: dragInitialPanRef.current.y + dy,
+      });
+    } else if (e.touches.length === 2 && touchStartDistRef.current > 0) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const ratio = dist / touchStartDistRef.current;
+      setZoom(Math.min(8, Math.max(1, touchStartZoomRef.current * ratio)));
+      hasMovedRef.current = true;
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (e.touches.length === 0) {
+      if (!hasMovedRef.current && isDragging && e.changedTouches.length > 0) {
+        dropPinAtScreenPoint(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+      }
+      setIsDragging(false);
+      touchStartDistRef.current = 0;
     }
   };
 
@@ -293,13 +429,13 @@ export default function TacticalRadarMap({
 
       if (d < 150) {
         pts = Math.round((4.5 + (150 - d) / 30) * 10) / 10;
-        impactNote = 'Immediate impact radius (< 150 km)';
+        impactNote = 'Immediate shockwave radius (< 150 km)';
       } else if (d < 500) {
         pts = Math.round((2.0 + (500 - d) / 150) * 10) / 10;
-        impactNote = 'Regional shockwave / monitoring zone';
+        impactNote = 'Regional monitoring zone (150 – 500 km)';
       } else if (d < 1500) {
         pts = Math.round((0.5 + (1500 - d) / 2000) * 10) / 10;
-        impactNote = 'Distant peripheral seismic reading';
+        impactNote = 'Distant peripheral reading (500 – 1,500 km)';
       } else {
         pts = 0.2;
         impactNote = 'Negligible continental distance (> 1,500 km)';
@@ -378,7 +514,7 @@ export default function TacticalRadarMap({
           <span className={`text-[10px] px-2 py-0.5 rounded font-mono ${
             isDark ? 'bg-[#21242d] text-slate-400' : 'bg-slate-100 text-slate-600'
           }`}>
-            Click map or search to reposition pin
+            Drag to pan &bull; Scroll / Pinch to zoom &bull; Click to set target pin
           </span>
         </div>
         <div className={`flex items-center gap-3 text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -393,41 +529,107 @@ export default function TacticalRadarMap({
         </div>
       </div>
 
-      {/* SVG Map Container with Google Maps-style Floating Search Bar */}
+      {/* SVG Map Container with Pan, Zoom & HUD Overlay */}
       <div 
         ref={mapContainerRef}
-        onClick={handleMapClick}
-        className={`relative w-full aspect-[2/1] min-h-[300px] sm:min-h-[420px] border rounded-xl overflow-hidden flex items-center justify-center select-none cursor-crosshair ${
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className={`relative w-full aspect-[2/1] min-h-[320px] sm:min-h-[440px] border rounded-xl overflow-hidden flex items-center justify-center select-none ${
+          isDragging ? 'cursor-grabbing' : 'cursor-grab'
+        } ${
           isDark ? 'bg-[#101114] border-[#282a33]' : 'bg-[#f1f5f9] border-slate-200'
         }`}
       >
-        {/* Real Geographical World Map Path */}
+        {/* Real Geographical World Map SVG with Pan/Zoom Transform */}
         <svg
           className="w-full h-full pointer-events-none"
           viewBox="0 0 1000 500"
           preserveAspectRatio="xMidYMid meet"
         >
-          {/* Latitude & Longitude Reference Grid */}
-          <line x1="0" y1="250" x2="1000" y2="250" stroke={isDark ? '#282a33' : '#cbd5e1'} strokeDasharray="3 3" strokeWidth="1" />
-          <line x1="500" y1="0" x2="500" y2="500" stroke={isDark ? '#282a33' : '#cbd5e1'} strokeDasharray="3 3" strokeWidth="1" />
-          <line x1="250" y1="0" x2="250" y2="500" stroke={isDark ? '#1f2128' : '#e2e8f0'} strokeDasharray="2 2" strokeWidth="0.8" />
-          <line x1="750" y1="0" x2="750" y2="500" stroke={isDark ? '#1f2128' : '#e2e8f0'} strokeDasharray="2 2" strokeWidth="0.8" />
+          <g transform={`translate(${500 + pan.x}, ${250 + pan.y}) scale(${zoom}) translate(-500, -250)`}>
+            {/* Latitude & Longitude Reference Grid */}
+            <line x1="0" y1="250" x2="1000" y2="250" stroke={isDark ? '#282a33' : '#cbd5e1'} strokeDasharray="3 3" strokeWidth="1" />
+            <line x1="500" y1="0" x2="500" y2="500" stroke={isDark ? '#282a33' : '#cbd5e1'} strokeDasharray="3 3" strokeWidth="1" />
+            <line x1="250" y1="0" x2="250" y2="500" stroke={isDark ? '#1f2128' : '#e2e8f0'} strokeDasharray="2 2" strokeWidth="0.8" />
+            <line x1="750" y1="0" x2="750" y2="500" stroke={isDark ? '#1f2128' : '#e2e8f0'} strokeDasharray="2 2" strokeWidth="0.8" />
 
-          <path
-            d={landPath}
-            fill={isDark ? '#21242d' : '#cbd5e1'}
-            stroke={isDark ? '#323642' : '#94a3b8'}
-            strokeWidth="0.8"
-            strokeLinejoin="round"
-          />
+            {/* Landmass Outlines */}
+            <path
+              d={landPath}
+              fill={isDark ? '#21242d' : '#cbd5e1'}
+              stroke={isDark ? '#323642' : '#94a3b8'}
+              strokeWidth="0.8"
+              strokeLinejoin="round"
+            />
+
+            {/* Threat Event Circles on Vector Map */}
+            {mappedThreats.map((threat) => {
+              const isHovered = hoveredThreatId === (threat.id || threat.title);
+              const isHighSeverity = threat.severityScore >= 8.0;
+              const radius = isHovered ? 7 : isHighSeverity ? 5.5 : 4;
+
+              return (
+                <g key={threat.id || threat.title} className="pointer-events-auto cursor-pointer">
+                  {/* Outer Pulsing Ring */}
+                  {(isHighSeverity || isHovered) && (
+                    <circle
+                      cx={threat.mapX}
+                      cy={threat.mapY}
+                      r={radius * 2}
+                      fill="none"
+                      stroke={isHighSeverity ? '#f43f5e' : '#FF007F'}
+                      strokeWidth="1.5"
+                      opacity="0.6"
+                      className="animate-ping"
+                    />
+                  )}
+
+                  {/* Core Event Dot */}
+                  <circle
+                    cx={threat.mapX}
+                    cy={threat.mapY}
+                    r={radius}
+                    fill={isHovered ? '#FF007F' : isHighSeverity ? '#f43f5e' : '#fbbf24'}
+                    stroke={isDark ? '#101114' : '#ffffff'}
+                    strokeWidth="1.2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectThreat(threat);
+                    }}
+                    onMouseEnter={() => setHoveredThreatId?.(threat.id || threat.title)}
+                    onMouseLeave={() => setHoveredThreatId?.(null)}
+                  />
+                </g>
+              );
+            })}
+
+            {/* User Target Pin Marker inside SVG Matrix */}
+            <g
+              transform={`translate(${userPinCoords.x}, ${userPinCoords.y})`}
+              className="pointer-events-none transition-all duration-300"
+            >
+              {/* Outer Pulse */}
+              <circle cx="0" cy="0" r="10" fill="#FF007F" opacity="0.3" className="animate-ping" />
+              {/* Pin Base */}
+              <circle cx="0" cy="0" r="6" fill="#FF007F" stroke="#ffffff" strokeWidth="2" />
+              <circle cx="0" cy="0" r="2.5" fill="#ffffff" />
+            </g>
+          </g>
         </svg>
 
         {/* --------------------------------------------------------------- */}
-        {/* GOOGLE MAPS STYLE FLOATING LOCATION SEARCH OVERLAY (Top-Left)  */}
+        {/* FLOATING LOCATION SEARCH OVERLAY (Top-Left)                     */}
         {/* --------------------------------------------------------------- */}
         <div 
-          className="absolute top-3 left-3 z-30 max-w-[310px] sm:max-w-sm w-full pointer-events-auto"
+          className="absolute top-3 left-3 z-30 max-w-[280px] sm:max-w-xs w-full pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
           ref={dropdownRef}
         >
           <div className={`p-1.5 rounded-2xl shadow-2xl border backdrop-blur-md transition-all ${
@@ -448,8 +650,8 @@ export default function TacticalRadarMap({
                   onFocus={() => {
                     if (suggestions.length > 0) setShowDropdown(true);
                   }}
-                  placeholder="Search location (e.g. Colorado Springs, Tokyo, Miami)..."
-                  className={`w-full pl-9 pr-8 py-2 text-xs rounded-xl border focus:outline-none focus:border-[#FF007F] transition-colors ${
+                  placeholder="Search city, address, or region..."
+                  className={`w-full pl-9 pr-8 py-1.5 text-xs rounded-xl border focus:outline-none focus:border-[#FF007F] transition-colors ${
                     isDark
                       ? 'bg-[#101114] border-[#282a33] text-white placeholder-slate-500'
                       : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400'
@@ -473,8 +675,8 @@ export default function TacticalRadarMap({
                 type="button"
                 onClick={handleDeviceLocate}
                 disabled={locatingDevice}
-                title="Detect my device GPS location"
-                className={`p-2 border rounded-xl transition flex items-center justify-center shrink-0 ${
+                title="Detect device GPS location"
+                className={`p-1.5 border rounded-xl transition flex items-center justify-center shrink-0 ${
                   isDark
                     ? 'bg-[#1e2027] hover:bg-[#282b36] border-[#2e313d] text-slate-200'
                     : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700 shadow-sm'
@@ -486,7 +688,7 @@ export default function TacticalRadarMap({
 
             {/* Autocomplete Dropdown List */}
             {showDropdown && suggestions.length > 0 && (
-              <div className={`mt-1.5 border rounded-xl shadow-2xl overflow-hidden max-h-52 overflow-y-auto divide-y transition-colors ${
+              <div className={`mt-1.5 border rounded-xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto divide-y transition-colors ${
                 isDark ? 'bg-[#1a1c23] border-[#2e313d] divide-[#282a33]' : 'bg-white border-slate-200 divide-slate-100'
               }`}>
                 {suggestions.map((loc, idx) => (
@@ -512,7 +714,55 @@ export default function TacticalRadarMap({
           </div>
         </div>
 
-        {/* Non-geospatial category banner */}
+        {/* --------------------------------------------------------------- */}
+        {/* ZOOM & VIEW CONTROL TOOLBAR (Top-Right)                         */}
+        {/* --------------------------------------------------------------- */}
+        <div 
+          className="absolute top-3 right-3 z-30 flex flex-col gap-1 pointer-events-auto"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={handleZoomIn}
+            title="Zoom In (+)"
+            className={`p-1.5 rounded-xl border backdrop-blur-md transition-all shadow-md flex items-center justify-center ${
+              isDark 
+                ? 'bg-[#16171c]/90 hover:bg-[#22252e] border-[#2e313d] text-slate-200' 
+                : 'bg-white/90 hover:bg-slate-100 border-slate-200 text-slate-800'
+            }`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={handleZoomOut}
+            title="Zoom Out (-)"
+            className={`p-1.5 rounded-xl border backdrop-blur-md transition-all shadow-md flex items-center justify-center ${
+              isDark 
+                ? 'bg-[#16171c]/90 hover:bg-[#22252e] border-[#2e313d] text-slate-200' 
+                : 'bg-white/90 hover:bg-slate-100 border-slate-200 text-slate-800'
+            }`}
+          >
+            <Minus className="w-3.5 h-3.5" />
+          </button>
+          {(zoom > 1 || pan.x !== 0 || pan.y !== 0) && (
+            <button
+              type="button"
+              onClick={handleResetView}
+              title="Reset Map View"
+              className={`p-1.5 rounded-xl border backdrop-blur-md transition-all shadow-md flex items-center justify-center text-[#FF007F] ${
+                isDark 
+                  ? 'bg-[#16171c]/90 hover:bg-[#22252e] border-[#2e313d]' 
+                  : 'bg-white/90 hover:bg-slate-100 border-slate-200'
+              }`}
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Non-geospatial category notice */}
         {isNonGeospatialCategory && (
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 z-20 pointer-events-none">
             <div className={`px-4 py-2.5 rounded-xl border flex items-center gap-3 shadow-xl ${
@@ -522,190 +772,121 @@ export default function TacticalRadarMap({
               <div className="text-xs">
                 <span className="font-semibold text-[#FF007F]">Non-Geographical Category Active:</span>
                 <span className="ml-1 text-slate-400">
-                  {activeCategory === 'STOCK_MARKET' && 'Financial indices (VIX / Panic metrics) are tracked in the data board below.'}
-                  {activeCategory === 'SPACE_WEATHER' && 'Solar & ionospheric events are orbital metrics tracked below.'}
-                  {activeCategory === 'ASTEROID' && 'Near-Earth Object flybys are deep space orbital metrics tracked below.'}
+                  {activeCategory === 'STOCK_MARKET' && 'Financial indices (VIX / Panic metrics) are tracked in Section 4 below.'}
+                  {activeCategory === 'SPACE_WEATHER' && 'Solar & ionospheric events are orbital metrics tracked in Section 3 below.'}
+                  {activeCategory === 'ASTEROID' && 'Near-Earth Object flybys are orbital metrics tracked in Section 3 below.'}
                 </span>
               </div>
             </div>
           </div>
         )}
 
-        {/* Interactive Threat Markers */}
-        {mappedThreats.map((threat) => {
-          const leftPct = (threat.mapX / 1000) * 100;
-          const topPct = (threat.mapY / 500) * 100;
-          const isHovered = hoveredThreatId === (threat.id || threat.title);
-          const isHighSeverity = threat.severityScore >= 8.0;
-
-          return (
-            <button
-              key={threat.id || threat.title}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectThreat(threat);
-              }}
-              onMouseEnter={() => setHoveredThreatId?.(threat.id || threat.title)}
-              onMouseLeave={() => setHoveredThreatId?.(null)}
-              className={`absolute transform -translate-x-1/2 -translate-y-1/2 group transition-transform ${
-                isHovered ? 'z-30 scale-125' : 'z-10'
-              } p-1 pointer-events-auto`}
-              style={{ left: `${leftPct}%`, top: `${topPct}%` }}
-              title={threat.title}
-            >
-              {(isHighSeverity || isHovered) && (
-                <span className={`absolute -inset-1 rounded-full animate-ping opacity-60 ${
-                  isHighSeverity ? 'bg-rose-500' : 'bg-[#FF007F]'
-                }`} />
-              )}
-
-              <span className="relative flex h-3 w-3 items-center justify-center">
-                <span className={`inline-flex rounded-full h-2.5 w-2.5 border shadow-sm transition-colors ${
-                  isHovered
-                    ? 'bg-[#FF007F] border-white'
-                    : isHighSeverity
-                    ? 'bg-rose-500 border-white'
-                    : 'bg-amber-400 border-[#101114]'
-                }`} />
-              </span>
-
-              {/* Tooltip Popup */}
-              <div className={`${
-                isHovered ? 'block' : 'hidden group-hover:block'
-              } absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-xl shadow-2xl text-left whitespace-nowrap z-40 pointer-events-none border transition-all ${
-                isDark
-                  ? 'bg-[#1a1c23] border-[#2e313d] text-white'
-                  : 'bg-white border-slate-200 text-slate-900'
-              }`}>
-                <div className="font-bold text-xs max-w-[220px] truncate">{threat.title}</div>
-                <div className={`text-[10px] flex items-center gap-2 mt-1 ${
-                  isDark ? 'text-slate-400' : 'text-slate-500'
-                }`}>
-                  <span className="text-[#FF007F] font-bold">Severity {threat.severityScore.toFixed(1)}/10</span>
-                  {threat.distanceKm !== undefined && (
-                    <>
-                      <span>&bull;</span>
-                      <span className="text-amber-400 font-medium">{formatDistance(threat.distanceKm)}</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </button>
-          );
-        })}
-
-        {/* User Location Pin (Target Indicator) */}
-        <div
-          className="absolute transform -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none transition-all duration-300"
-          style={{
-            left: `${(userPinCoords.x / 1000) * 100}%`,
-            top: `${(userPinCoords.y / 500) * 100}%`,
-          }}
-        >
-          <div className="flex flex-col items-center">
-            <div className="w-4 h-4 rounded-full bg-[#FF007F] border-2 border-white shadow-lg flex items-center justify-center animate-pulse">
-              <span className="w-1.5 h-1.5 rounded-full bg-white" />
-            </div>
-            <div className="mt-1 bg-[#FF007F] text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-md whitespace-nowrap">
-              {userLocation.cityName?.split(',')[0] || 'Selected Target'}
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom-Right Local Sector Score HUD & Pop-out Breakdown */}
+        {/* --------------------------------------------------------------- */}
+        {/* CLEAN MINIMAL BOTTOM-RIGHT HUD & EXPANDABLE POP-OUT CARD        */}
+        {/* --------------------------------------------------------------- */}
         <div 
           onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
           className={`absolute bottom-3 right-3 z-30 transition-all duration-300 pointer-events-auto ${
             isScoreExpanded 
               ? 'max-w-[320px] sm:max-w-[360px] w-[calc(100%-24px)]' 
-              : 'max-w-[240px] sm:max-w-[270px] w-full'
+              : 'max-w-[210px] sm:max-w-[230px] w-auto'
           }`}
         >
-          <div className={`p-3 rounded-2xl border backdrop-blur-md shadow-2xl transition-all ${
+          <div className={`rounded-2xl border backdrop-blur-md shadow-2xl transition-all ${
             isDark 
               ? 'bg-[#16171c]/95 border-[#2e313d] shadow-black/80 text-white' 
               : 'bg-white/95 border-slate-200 shadow-slate-400/30 text-slate-900'
           }`}>
-            {/* Header */}
-            <div className="flex items-center justify-between gap-1.5 mb-1.5">
-              <div className="flex items-center gap-1.5">
-                <Crosshair className="w-3.5 h-3.5 text-[#FF007F] animate-spin" style={{ animationDuration: '8s' }} />
-                <span className="text-[10px] font-black uppercase tracking-wider font-mono text-slate-400">
-                  {isScoreExpanded ? 'LOCAL RISK BREAKDOWN' : 'LOCAL SECTOR SCORE'}
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase tracking-tight ${localSectorStats.badgeClass}`}>
-                  {localSectorStats.level}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setIsScoreExpanded(!isScoreExpanded)}
-                  title={isScoreExpanded ? 'Collapse breakdown' : 'View score factors'}
-                  className={`p-1 rounded-lg border text-slate-400 hover:text-white transition-colors ${
-                    isDark ? 'bg-[#21242e] border-[#2e313d] hover:bg-[#2c303d]' : 'bg-slate-100 border-slate-200 hover:bg-slate-200'
-                  }`}
-                >
-                  {isScoreExpanded ? (
-                    <ChevronDown className="w-3 h-3 text-slate-300" />
-                  ) : (
-                    <ChevronUp className="w-3 h-3 text-[#FF007F]" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Score & Quick Metric Row */}
-            <div className="flex items-baseline justify-between gap-2">
-              <div className="flex items-baseline gap-1">
-                <span className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${localSectorStats.colorClass}`}>
-                  {localSectorStats.score.toFixed(1)}
-                </span>
-                <span className="text-[10px] font-mono text-slate-500">/ 10</span>
-              </div>
-
-              <div className="text-right">
-                <div className="text-[10px] font-mono text-slate-300">
-                  {localSectorStats.nearestDistanceKm < 50000 ? (
-                    <span className="font-bold text-[#FF007F]">{formatDistance(localSectorStats.nearestDistanceKm)}</span>
-                  ) : (
-                    'No local events'
-                  )}
-                </div>
-                <div className="text-[9px] font-mono text-slate-500 truncate max-w-[130px]" title={localSectorStats.nearestEvent?.title || 'Ground nominal'}>
-                  {localSectorStats.nearestEvent ? localSectorStats.nearestEvent.title.replace(/^M\s*[\d.]+\s*-\s*/i, '') : 'Ground nominal'}
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Toggle Link in collapsed mode */}
-            {!isScoreExpanded && (
+            {/* COLLAPSED STATE: Ultra-clean, minimal HUD pill */}
+            {!isScoreExpanded ? (
               <button
                 type="button"
                 onClick={() => setIsScoreExpanded(true)}
-                className="mt-2 w-full text-left text-[9px] font-mono text-[#FF007F] hover:underline flex items-center justify-between border-t border-[#2e313d]/40 pt-1.5"
+                className="w-full px-3 py-2 flex items-center justify-between gap-2.5 hover:opacity-90 transition-opacity text-left"
               >
-                <span>Why this score?</span>
-                <span className="text-slate-400">View factors ▾</span>
-              </button>
-            )}
+                <div className="flex items-center gap-2">
+                  <Crosshair className="w-3.5 h-3.5 text-[#FF007F] shrink-0 animate-pulse" />
+                  <div className="flex items-baseline gap-1 font-mono">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">SECTOR:</span>
+                    <span className={`text-base font-black ${localSectorStats.colorClass}`}>
+                      {localSectorStats.score.toFixed(1)}
+                    </span>
+                  </div>
+                </div>
 
-            {/* Expanded Detailed Pop-out Breakdown */}
-            {isScoreExpanded && (
-              <div className="mt-3 pt-2.5 border-t border-[#2e313d] space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 pb-1 border-b border-[#282a33]">
-                  <span>Target Sector:</span>
-                  <span className="font-bold text-slate-200 truncate max-w-[180px]">
-                    {userLocation.cityName?.split(',')[0] || 'Selected Target'}
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase tracking-tight ${localSectorStats.badgeClass}`}>
+                    {localSectorStats.level}
+                  </span>
+                  <ChevronUp className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                </div>
+              </button>
+            ) : (
+              /* EXPANDED STATE: Full Breakdown & Integrated Local Reality Ground Status */
+              <div className="p-3.5 space-y-2.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                {/* Header */}
+                <div className="flex items-center justify-between gap-1.5 pb-1 border-b border-[#2e313d]">
+                  <div className="flex items-center gap-1.5">
+                    <Crosshair className="w-3.5 h-3.5 text-[#FF007F] animate-spin" style={{ animationDuration: '8s' }} />
+                    <span className="text-[10px] font-black uppercase tracking-wider font-mono text-slate-300">
+                      LOCAL SECTOR TELEMETRY
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsScoreExpanded(false)}
+                    className={`p-1 rounded-lg border text-slate-400 hover:text-white transition-colors ${
+                      isDark ? 'bg-[#21242e] border-[#2e313d]' : 'bg-slate-100 border-slate-200'
+                    }`}
+                  >
+                    <ChevronDown className="w-3 h-3 text-slate-300" />
+                  </button>
+                </div>
+
+                {/* Score & Target Summary Row */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-baseline gap-1 font-mono">
+                    <span className={`text-2xl font-black ${localSectorStats.colorClass}`}>
+                      {localSectorStats.score.toFixed(1)}
+                    </span>
+                    <span className="text-[10px] text-slate-500">/ 10</span>
+                    <span className={`ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase ${localSectorStats.badgeClass}`}>
+                      {localSectorStats.level}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-400 truncate max-w-[130px]" title={userLocation.cityName}>
+                    {userLocation.cityName?.split(',')[0] || 'Target'}
                   </span>
                 </div>
 
-                {/* Contributing Factor Items */}
-                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                {/* Integrated Ground Reality & Nearest Earthquake Status */}
+                <div className={`p-2.5 rounded-xl border flex items-start gap-2 text-[10px] font-mono ${
+                  isDark ? 'bg-[#101114] border-[#282a33] text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+                }`}>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0 mt-0.5" />
+                  <div>
+                    {assessment?.nearbySeismic ? (
+                      <>
+                        Nearest earthquake: <strong className="text-white">{formatDistance(assessment.nearbySeismic.nearestDistanceKm)}</strong> ({assessment.nearbySeismic.place}).
+                      </>
+                    ) : localSectorStats.nearestDistanceKm < 50000 ? (
+                      <>
+                        Nearest seismic epicenter: <strong className="text-white">{formatDistance(localSectorStats.nearestDistanceKm)}</strong>.
+                      </>
+                    ) : (
+                      <>Nearest seismic epicenter is over 1,500 km away.</>
+                    )}{' '}
+                    <strong className="text-emerald-400">Ground status: Stable.</strong>
+                  </div>
+                </div>
+
+                {/* Itemized Contributing Factors List */}
+                <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
                   {localSectorStats.factors.map((f, idx) => (
                     <div
                       key={idx}
-                      className={`p-2 rounded-xl border text-[10px] font-mono transition-colors ${
+                      className={`p-2 rounded-xl border text-[10px] font-mono ${
                         isDark ? 'bg-[#101114] border-[#282a33]' : 'bg-slate-50 border-slate-200'
                       }`}
                     >
@@ -731,15 +912,15 @@ export default function TacticalRadarMap({
                   ))}
                 </div>
 
-                {/* Math Transparency Footer */}
+                {/* Footer with Close action */}
                 <div className="flex items-center justify-between text-[9px] font-mono text-slate-500 pt-1">
-                  <span>⚡ Pure Haversine distance model</span>
+                  <span>⚡ Pure Haversine client model</span>
                   <button
                     type="button"
                     onClick={() => setIsScoreExpanded(false)}
                     className="text-[#FF007F] hover:underline font-bold"
                   >
-                    Close ▴
+                    Minimize ▴
                   </button>
                 </div>
               </div>
@@ -747,31 +928,6 @@ export default function TacticalRadarMap({
           </div>
         </div>
       </div>
-
-      {/* Local Reality Summary Bar */}
-      <div className={`p-3.5 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs ${
-        isDark ? 'bg-[#101114] border-[#282a33] text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
-      }`}>
-        <div className="flex items-center gap-2 font-mono text-[11px] sm:text-xs">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-          <span>
-            {assessment?.nearbySeismic ? (
-              <>
-                Nearest earthquake is <strong>{formatDistance(assessment.nearbySeismic.nearestDistanceKm)}</strong> away ({assessment.nearbySeismic.place}).
-              </>
-            ) : (
-              <>Nearest earthquake is over 800 miles away.</>
-            )}{' '}
-            <strong className="text-emerald-400">Ground status: Stable.</strong>
-          </span>
-        </div>
-
-        <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 shrink-0">
-          LOCAL REALITY: VERIFIED
-        </span>
-      </div>
     </div>
   );
 }
-
-
