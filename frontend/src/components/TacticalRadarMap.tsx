@@ -2,12 +2,12 @@
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { ThreatRecord, ThreatCategory, UserLocation, GeocodedLocation, RegionalAssessment } from '@/types/threats';
-import { Globe, Layers, Search, Navigation, MapPin, Loader2, X } from 'lucide-react';
+import { Globe, Layers, Search, Navigation, MapPin, Loader2, X, Crosshair } from 'lucide-react';
 import { geoNaturalEarth1, geoPath } from 'd3-geo';
 import { feature } from 'topojson-client';
 import type { Topology } from 'topojson-specification';
 import worldAtlasData from 'world-atlas/land-110m.json';
-import { formatDistance } from '@/lib/geo';
+import { formatDistance, calculateDistanceKm } from '@/lib/geo';
 import { geocodeAddress, assessLocation } from '@/lib/api';
 
 interface TacticalRadarMapProps {
@@ -231,6 +231,74 @@ export default function TacticalRadarMap({
       })
       .filter((t): t is ThreatRecord & { mapX: number; mapY: number } => t !== null);
   }, [threats, projection, activeCategory]);
+
+  // Real-time pure mathematical local sector risk score
+  const localSectorStats = useMemo(() => {
+    let nearestDistanceKm = 999999;
+    let nearestEvent: ThreatRecord | null = null;
+
+    threats.forEach((t) => {
+      if (t.threatType === 'EARTHQUAKE' || t.threatType === 'TERRESTRIAL_WEATHER') {
+        let dKm = t.distanceKm;
+        if (dKm === undefined) {
+          try {
+            const meta = typeof t.metadata === 'string' ? JSON.parse(t.metadata) : t.metadata;
+            const lat = meta?.latitude ?? meta?.lat;
+            const lon = meta?.longitude ?? meta?.lon;
+            if (typeof lat === 'number' && typeof lon === 'number') {
+              dKm = calculateDistanceKm(userLocation.latitude, userLocation.longitude, lat, lon);
+            }
+          } catch {
+            // Ignored
+          }
+        }
+
+        if (dKm !== undefined && dKm < nearestDistanceKm) {
+          nearestDistanceKm = dKm;
+          nearestEvent = t;
+        }
+      }
+    });
+
+    // Pure mathematical risk scale (1.0 to 10.0) based on proximity
+    let score = 1.0;
+    let level = 'NOMINAL';
+    let colorClass = 'text-emerald-400';
+    let badgeClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+
+    if (nearestDistanceKm < 150) {
+      score = Math.min(9.8, 8.5 + (150 - nearestDistanceKm) / 100);
+      level = 'IMMEDIATE HAZARD';
+      colorClass = 'text-rose-500';
+      badgeClass = 'bg-rose-500/10 text-rose-400 border-rose-500/40';
+    } else if (nearestDistanceKm < 500) {
+      score = 5.5 + ((500 - nearestDistanceKm) / 350) * 2.5;
+      level = 'REGIONAL ALERT';
+      colorClass = 'text-amber-400';
+      badgeClass = 'bg-amber-500/10 text-amber-400 border-amber-500/40';
+    } else if (nearestDistanceKm < 1500) {
+      score = 2.4 + ((1500 - nearestDistanceKm) / 1000) * 2.0;
+      level = 'PERIPHERAL';
+      colorClass = 'text-sky-400';
+      badgeClass = 'bg-sky-500/10 text-sky-400 border-sky-500/30';
+    } else {
+      score = 1.2;
+      level = 'SAFE & NOMINAL';
+      colorClass = 'text-emerald-400';
+      badgeClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+    }
+
+    score = Math.round(score * 10) / 10;
+
+    return {
+      score,
+      level,
+      colorClass,
+      badgeClass,
+      nearestDistanceKm: Math.round(nearestDistanceKm),
+      nearestEvent: nearestEvent as ThreatRecord | null,
+    };
+  }, [threats, userLocation.latitude, userLocation.longitude]);
 
   const isNonGeospatialCategory = 
     activeCategory === 'STOCK_MARKET' || 
@@ -481,6 +549,50 @@ export default function TacticalRadarMap({
             </div>
             <div className="mt-1 bg-[#FF007F] text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-md whitespace-nowrap">
               {userLocation.cityName?.split(',')[0] || 'Selected Target'}
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom-Right Local Sector Score HUD */}
+        <div 
+          onClick={(e) => e.stopPropagation()}
+          className={`absolute bottom-3 right-3 z-30 max-w-[240px] sm:max-w-[270px] w-full p-2.5 sm:p-3 rounded-2xl border backdrop-blur-md shadow-2xl transition-all pointer-events-auto ${
+            isDark 
+              ? 'bg-[#16171c]/90 border-[#2e313d] shadow-black/70 text-white' 
+              : 'bg-white/95 border-slate-200 shadow-slate-400/20 text-slate-900'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-1.5 mb-1">
+            <div className="flex items-center gap-1.5">
+              <Crosshair className="w-3.5 h-3.5 text-[#FF007F] animate-spin" style={{ animationDuration: '8s' }} />
+              <span className="text-[10px] font-black uppercase tracking-wider font-mono text-slate-400">
+                LOCAL SECTOR SCORE
+              </span>
+            </div>
+            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase tracking-tight ${localSectorStats.badgeClass}`}>
+              {localSectorStats.level}
+            </span>
+          </div>
+
+          <div className="flex items-baseline justify-between gap-2">
+            <div className="flex items-baseline gap-1">
+              <span className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${localSectorStats.colorClass}`}>
+                {localSectorStats.score.toFixed(1)}
+              </span>
+              <span className="text-[10px] font-mono text-slate-500">/ 10</span>
+            </div>
+
+            <div className="text-right">
+              <div className="text-[10px] font-mono text-slate-300">
+                {localSectorStats.nearestDistanceKm < 50000 ? (
+                  <span className="font-bold text-[#FF007F]">{formatDistance(localSectorStats.nearestDistanceKm)}</span>
+                ) : (
+                  'No local events'
+                )}
+              </div>
+              <div className="text-[9px] font-mono text-slate-500 truncate max-w-[130px]" title={localSectorStats.nearestEvent?.title || 'Ground nominal'}>
+                {localSectorStats.nearestEvent ? localSectorStats.nearestEvent.title.replace(/^M\s*[\d.]+\s*-\s*/i, '') : 'Ground nominal'}
+              </div>
             </div>
           </div>
         </div>
