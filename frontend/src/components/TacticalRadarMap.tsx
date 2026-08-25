@@ -511,7 +511,7 @@ export default function TacticalRadarMap({
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md bg-[#FF007F]/10 text-[#FF007F] border border-[#FF007F]/25 flex items-center gap-1.5 font-mono">
             <Globe className="w-3.5 h-3.5" />
-            2. GEOSPATIAL MAP & LOCAL REALITY
+            2. LOCAL MAP
           </span>
           <span className={`text-[10px] px-2 py-0.5 rounded font-mono ${
             isDark ? 'bg-[#21242d] text-slate-400' : 'bg-slate-100 text-slate-600'
