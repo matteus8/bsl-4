@@ -768,150 +768,135 @@ export default function TacticalRadarMap({
         )}
 
         {/* --------------------------------------------------------------- */}
-        {/* CLEAN MINIMAL BOTTOM-RIGHT HUD & EXPANDABLE POP-OUT CARD        */}
+        {/* MINIMAL BOTTOM-RIGHT HUD & EXPANDABLE POP-OUT CARD              */}
         {/* --------------------------------------------------------------- */}
         <div 
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
-          className={`absolute bottom-3 right-3 z-30 transition-all duration-300 pointer-events-auto ${
-            isScoreExpanded 
-              ? 'max-w-[310px] sm:max-w-[340px] w-[calc(100%-24px)]' 
-              : 'max-w-[190px] sm:max-w-[210px] w-auto'
-          }`}
+          className="absolute bottom-3 right-3 z-30 transition-all duration-300 pointer-events-auto"
         >
-          <div className={`rounded-2xl border backdrop-blur-md shadow-2xl transition-all ${
-            isDark 
-              ? 'bg-[#16171c]/95 border-[#2e313d] shadow-black/80 text-white' 
-              : 'bg-white/95 border-slate-200 shadow-slate-400/30 text-slate-900'
-          }`}>
-            {/* COLLAPSED STATE: Ultra-clean, minimal HUD pill */}
-            {!isScoreExpanded ? (
-              <button
-                type="button"
-                onClick={() => setIsScoreExpanded(true)}
-                className="w-full px-3 py-1.5 flex items-center justify-between gap-2 hover:opacity-90 transition-opacity text-left"
-              >
+          {/* COLLAPSED STATE: Just the clean number with expand affordance */}
+          {!isScoreExpanded ? (
+            <button
+              type="button"
+              onClick={() => setIsScoreExpanded(true)}
+              title="Click to view local risk factors"
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border backdrop-blur-md shadow-xl transition-all font-mono hover:scale-105 ${
+                isDark 
+                  ? 'bg-[#16171c]/90 border-[#2e313d] text-white shadow-black/80' 
+                  : 'bg-white/90 border-slate-200 text-slate-900 shadow-slate-400/30'
+              }`}
+            >
+              <span className={`text-sm font-black ${localSectorStats.colorClass}`}>
+                {localSectorStats.score.toFixed(1)}
+              </span>
+              <span className="text-[10px] text-slate-500 font-bold">/10</span>
+              <ChevronUp className="w-3 h-3 text-slate-400" />
+            </button>
+          ) : (
+            /* EXPANDED STATE: Full Breakdown & Integrated Local Reality Ground Status */
+            <div className={`max-w-[310px] sm:max-w-[340px] w-[calc(100vw-48px)] rounded-2xl border backdrop-blur-md shadow-2xl p-3 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-200 ${
+              isDark 
+                ? 'bg-[#16171c]/95 border-[#2e313d] shadow-black/80 text-white' 
+                : 'bg-white/95 border-slate-200 shadow-slate-400/30 text-slate-900'
+            }`}>
+              {/* Header */}
+              <div className="flex items-center justify-between gap-1.5 pb-1 border-b border-[#2e313d]">
                 <div className="flex items-center gap-1.5">
-                  <Crosshair className="w-3.5 h-3.5 text-[#FF007F] shrink-0" />
-                  <div className="flex items-baseline gap-1 font-mono">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">SECTOR:</span>
-                    <span className={`text-sm font-black ${localSectorStats.colorClass}`}>
-                      {localSectorStats.score.toFixed(1)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <span className={`text-[8px] font-mono font-bold px-1 py-0.5 rounded border uppercase tracking-tight ${localSectorStats.badgeClass}`}>
-                    {localSectorStats.level}
-                  </span>
-                  <ChevronUp className="w-3 h-3 text-slate-400 shrink-0" />
-                </div>
-              </button>
-            ) : (
-              /* EXPANDED STATE: Full Breakdown & Integrated Local Reality Ground Status */
-              <div className="p-3 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                {/* Header */}
-                <div className="flex items-center justify-between gap-1.5 pb-1 border-b border-[#2e313d]">
-                  <div className="flex items-center gap-1.5">
-                    <Crosshair className="w-3.5 h-3.5 text-[#FF007F]" />
-                    <span className="text-[10px] font-black uppercase tracking-wider font-mono text-slate-300">
-                      LOCAL SECTOR TELEMETRY
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsScoreExpanded(false)}
-                    className={`p-1 rounded-lg border text-slate-400 hover:text-white transition-colors ${
-                      isDark ? 'bg-[#21242e] border-[#2e313d]' : 'bg-slate-100 border-slate-200'
-                    }`}
-                  >
-                    <ChevronDown className="w-3 h-3 text-slate-300" />
-                  </button>
-                </div>
-
-                {/* Score & Target Summary Row */}
-                <div className="flex items-center justify-between gap-2 font-mono">
-                  <div className="flex items-baseline gap-1">
-                    <span className={`text-xl font-black ${localSectorStats.colorClass}`}>
-                      {localSectorStats.score.toFixed(1)}
-                    </span>
-                    <span className="text-[10px] text-slate-500">/ 10</span>
-                    <span className={`ml-1.5 text-[8px] font-bold px-1.5 py-0.2 rounded border uppercase ${localSectorStats.badgeClass}`}>
-                      {localSectorStats.level}
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 truncate max-w-[120px]" title={userLocation.cityName}>
-                    {userLocation.cityName?.split(',')[0] || 'Target'}
+                  <Crosshair className="w-3.5 h-3.5 text-[#FF007F]" />
+                  <span className="text-[10px] font-black uppercase tracking-wider font-mono text-slate-300">
+                    LOCAL SECTOR TELEMETRY
                   </span>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setIsScoreExpanded(false)}
+                  className={`p-1 rounded-lg border text-slate-400 hover:text-white transition-colors ${
+                    isDark ? 'bg-[#21242e] border-[#2e313d]' : 'bg-slate-100 border-slate-200'
+                  }`}
+                >
+                  <ChevronDown className="w-3 h-3 text-slate-300" />
+                </button>
+              </div>
 
-                {/* Integrated Ground Reality & Nearest Earthquake Status */}
-                <div className={`p-2 rounded-xl border flex items-start gap-1.5 text-[9px] font-mono leading-relaxed ${
-                  isDark ? 'bg-[#101114] border-[#282a33] text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
-                }`}>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 mt-1" />
-                  <div>
-                    {assessment?.nearbySeismic ? (
-                      <>
-                        Nearest earthquake: <strong className="text-white">{formatDistance(assessment.nearbySeismic.nearestDistanceKm)}</strong> ({assessment.nearbySeismic.place}).
-                      </>
-                    ) : localSectorStats.nearestDistanceKm < 50000 ? (
-                      <>
-                        Nearest seismic epicenter: <strong className="text-white">{formatDistance(localSectorStats.nearestDistanceKm)}</strong>.
-                      </>
-                    ) : (
-                      <>Nearest seismic epicenter is over 1,500 km away.</>
-                    )}{' '}
-                    <strong className="text-emerald-400">Ground status: Stable.</strong>
-                  </div>
+              {/* Score & Target Summary Row */}
+              <div className="flex items-center justify-between gap-2 font-mono">
+                <div className="flex items-baseline gap-1">
+                  <span className={`text-xl font-black ${localSectorStats.colorClass}`}>
+                    {localSectorStats.score.toFixed(1)}
+                  </span>
+                  <span className="text-[10px] text-slate-500">/ 10</span>
                 </div>
+                <span className="text-[10px] text-slate-400 truncate max-w-[150px]" title={userLocation.cityName}>
+                  {userLocation.cityName?.split(',')[0] || 'Target'}
+                </span>
+              </div>
 
-                {/* Itemized Contributing Factors List - Fits without scrolling */}
-                <div className="space-y-1">
-                  {localSectorStats.factors.slice(0, 3).map((f, idx) => (
-                    <div
-                      key={idx}
-                      className={`p-1.5 rounded-xl border text-[9px] font-mono ${
-                        isDark ? 'bg-[#101114] border-[#282a33]' : 'bg-slate-50 border-slate-200'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-1 mb-0.5">
-                        <span className="font-bold text-slate-200 truncate max-w-[180px]">{f.title}</span>
-                        <span className={`px-1 rounded font-black text-[8px] shrink-0 ${
-                          f.points >= 3.0
-                            ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                            : f.points >= 1.0
-                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                            : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                        }`}>
-                          +{f.points.toFixed(1)} pts
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-[8px] text-slate-400">
-                        <span className="truncate max-w-[160px]">{f.detail}</span>
-                        {f.distanceKm !== undefined && (
-                          <span className="text-[#FF007F] font-semibold shrink-0">{f.distanceKm.toLocaleString()} km</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Footer */}
-                <div className="flex items-center justify-between text-[8px] font-mono text-slate-500 pt-0.5">
-                  <span>⚡ Pure Haversine distance model</span>
-                  <button
-                    type="button"
-                    onClick={() => setIsScoreExpanded(false)}
-                    className="text-[#FF007F] hover:underline font-bold"
-                  >
-                    Minimize ▴
-                  </button>
+              {/* Integrated Ground Reality & Nearest Earthquake Status */}
+              <div className={`p-2 rounded-xl border flex items-start gap-1.5 text-[9px] font-mono leading-relaxed ${
+                isDark ? 'bg-[#101114] border-[#282a33] text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+              }`}>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 mt-1" />
+                <div>
+                  {assessment?.nearbySeismic ? (
+                    <>
+                      Nearest earthquake: <strong className="text-white">{formatDistance(assessment.nearbySeismic.nearestDistanceKm)}</strong> ({assessment.nearbySeismic.place}).
+                    </>
+                  ) : localSectorStats.nearestDistanceKm < 50000 ? (
+                    <>
+                      Nearest seismic epicenter: <strong className="text-white">{formatDistance(localSectorStats.nearestDistanceKm)}</strong>.
+                    </>
+                  ) : (
+                    <>Nearest seismic epicenter is over 1,500 km away.</>
+                  )}{' '}
+                  <strong className="text-emerald-400">Ground status: Stable.</strong>
                 </div>
               </div>
-            )}
-          </div>
+
+              {/* Itemized Contributing Factors List */}
+              <div className="space-y-1">
+                {localSectorStats.factors.slice(0, 3).map((f, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-1.5 rounded-xl border text-[9px] font-mono ${
+                      isDark ? 'bg-[#101114] border-[#282a33]' : 'bg-slate-50 border-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                      <span className="font-bold text-slate-200 truncate max-w-[180px]">{f.title}</span>
+                      <span className={`px-1 rounded font-black text-[8px] shrink-0 ${
+                        f.points >= 3.0
+                          ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                          : f.points >= 1.0
+                          ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                          : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      }`}>
+                        +{f.points.toFixed(1)} pts
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[8px] text-slate-400">
+                      <span className="truncate max-w-[160px]">{f.detail}</span>
+                      {f.distanceKm !== undefined && (
+                        <span className="text-[#FF007F] font-semibold shrink-0">{f.distanceKm.toLocaleString()} km</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-between text-[8px] font-mono text-slate-500 pt-0.5">
+                <span>⚡ Pure Haversine distance model</span>
+                <button
+                  type="button"
+                  onClick={() => setIsScoreExpanded(false)}
+                  className="text-[#FF007F] hover:underline font-bold"
+                >
+                  Minimize ▴
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
