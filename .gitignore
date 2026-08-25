@@ -1,14 +1,11 @@
 # =========================
-# Secrets & Configs
+# Secrets, Configs & Scripts
 # =========================
 .env
 .env.local
 application-local.properties
 application.properties
-deploy-aws.sh
-deploy-worker.sh
-deploy-*.sh
-!deploy-frontend.sh
+*.sh
 
 # =========================
 # OS & IDE Files

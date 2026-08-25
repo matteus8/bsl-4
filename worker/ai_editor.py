@@ -13,7 +13,7 @@ import json
 import logging
 import urllib.request
 import urllib.parse
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 import boto3
 import pg8000.native
 

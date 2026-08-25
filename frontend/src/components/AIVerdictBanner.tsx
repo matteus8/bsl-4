@@ -138,7 +138,7 @@ export default function AIVerdictBanner({
       highestSolarClass,
       marketVolatilitySpike,
     };
-  }, [threats, storedVerdict]);
+  }, [threats, storedVerdict, loading]);
 
   // Clean loading state without flashing or glow
   if (!verdict) {
