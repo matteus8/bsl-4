@@ -1,222 +1,66 @@
-name: BSL-4 Production CI/CD Pipeline
+name: Deploy
 
 on:
   push:
     branches:
       - main
   workflow_dispatch:
-    inputs:
-      deploy_frontend:
-        description: "Deploy Next.js static frontend to S3 & CloudFront"
-        required: true
-        type: boolean
-        default: true
-      deploy_ingestor:
-        description: "Deploy Python Ingestion Worker Lambda"
-        required: true
-        type: boolean
-        default: true
-      deploy_ai_editor:
-        description: "Deploy Python AI Editorial Worker Lambda"
-        required: true
-        type: boolean
-        default: true
 
-# ==============================================================================
-# OIDC Security Permissions
-# 'id-token: write' is required for GitHub Actions to authenticate to AWS via IAM Role ARN
-# ==============================================================================
 permissions:
   id-token: write
   contents: read
 
-# ==============================================================================
-# Feature Toggles & Global Configuration
-# Change toggles to 'true' or 'false' to control automated deployment on push.
-# ==============================================================================
 env:
-  DEPLOY_FRONTEND: "true"          # Toggle: Build & deploy Next.js frontend to S3
-  DEPLOY_INGESTOR_WORKER: "true"   # Toggle: Package & deploy bsl4-ingestor Lambda
-  DEPLOY_AI_WORKER: "true"         # Toggle: Package & deploy bsl4-ai-editor Lambda
-  INVALIDATE_CLOUDFRONT: "true"    # Invalidate CloudFront CDN edge cache
   AWS_REGION: "us-east-1"
   AWS_ROLE_ARN: "arn:aws:iam::973213517498:role/BSL4GitHubActionsRole"
-  S3_BUCKET_NAME: "platformstaq.com"
+  S3_BUCKET: "platformstaq.com"
   CLOUDFRONT_DIST_ID: "E24CTJCZZ478NW"
-  INGESTOR_FUNCTION_NAME: "bsl4-ingestor"
-  AI_EDITOR_FUNCTION_NAME: "bsl4-ai-editor"
 
 jobs:
-  # ----------------------------------------------------------------------------
-  # JOB 1: Deploy Next.js Static Frontend to S3 & CloudFront Edge
-  # ----------------------------------------------------------------------------
-  deploy-frontend:
-    name: Deploy Frontend to S3 & Edge
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Check Deployment Toggle
-        id: check-toggle
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "enabled=${{ inputs.deploy_frontend }}" >> $GITHUB_OUTPUT
-          else
-            echo "enabled=${{ env.DEPLOY_FRONTEND }}" >> $GITHUB_OUTPUT
-          fi
-
       - name: Checkout Code
-        if: steps.check-toggle.outputs.enabled == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      # -----------------------------------------------------------------------
-      # INFRA STEP: AWS Connectivity (OIDC)
-      # -----------------------------------------------------------------------
-      - name: Configure AWS (OIDC)
-        if: steps.check-toggle.outputs.enabled == 'true'
+      - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v5.1.1
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-          audience: "sts.amazonaws.com"
 
-      - name: Setup Node.js 22
-        if: steps.check-toggle.outputs.enabled == 'true'
-        uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install Frontend Dependencies
-        if: steps.check-toggle.outputs.enabled == 'true'
+      - name: Build and Deploy Frontend
         working-directory: frontend
-        run: npm ci
-
-      - name: Build Next.js Static Export
-        if: steps.check-toggle.outputs.enabled == 'true'
-        working-directory: frontend
-        env:
-          NEXT_PUBLIC_API_URL: ""
-        run: npm run build
-
-      - name: Sync Static Assets to Amazon S3
-        if: steps.check-toggle.outputs.enabled == 'true'
         run: |
-          aws s3 sync frontend/out/ "s3://${{ env.S3_BUCKET_NAME }}" \
-            --delete \
-            --exclude "api/*" \
-            --exclude "data/*"
+          npm ci
+          npm run build
+          aws s3 sync out/ "s3://${{ env.S3_BUCKET }}" --delete --exclude "api/*" --exclude "data/*"
+          aws cloudfront create-invalidation --distribution-id "${{ env.CLOUDFRONT_DIST_ID }}" --paths "/*"
 
-      - name: Invalidate CloudFront CDN Cache
-        if: steps.check-toggle.outputs.enabled == 'true' && env.INVALIDATE_CLOUDFRONT == 'true'
-        run: |
-          aws cloudfront create-invalidation \
-            --distribution-id "${{ env.CLOUDFRONT_DIST_ID }}" \
-            --paths "/*"
-
-  # ----------------------------------------------------------------------------
-  # JOB 2: Deploy Ingestion Worker Lambda (Python 3.12)
-  # ----------------------------------------------------------------------------
-  deploy-ingestor:
-    name: Deploy Ingestion Worker Lambda
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check Deployment Toggle
-        id: check-toggle
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "enabled=${{ inputs.deploy_ingestor }}" >> $GITHUB_OUTPUT
-          else
-            echo "enabled=${{ env.DEPLOY_INGESTOR_WORKER }}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Checkout Code
-        if: steps.check-toggle.outputs.enabled == 'true'
-        uses: actions/checkout@v4
-
-      # -----------------------------------------------------------------------
-      # INFRA STEP: AWS Connectivity (OIDC)
-      # -----------------------------------------------------------------------
-      - name: Configure AWS (OIDC)
-        if: steps.check-toggle.outputs.enabled == 'true'
-        uses: aws-actions/configure-aws-credentials@v5.1.1
-        with:
-          role-to-assume: ${{ env.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-          audience: "sts.amazonaws.com"
-
-      - name: Setup Python 3.12
-        if: steps.check-toggle.outputs.enabled == 'true'
-        uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-          cache: 'pip'
-          cache-dependency-path: worker/requirements.txt
 
-      - name: Package Ingestion Worker
-        if: steps.check-toggle.outputs.enabled == 'true'
+      - name: Deploy Ingestion Worker Lambda
         run: |
-          mkdir -p worker_build
-          pip install --target worker_build -r worker/requirements.txt
-          cp worker/main.py worker_build/
-          cd worker_build && zip -r ../worker.zip . && cd ..
+          mkdir -p build_ingestor
+          pip install --target build_ingestor -r worker/requirements.txt
+          cp worker/main.py build_ingestor/
+          cd build_ingestor && zip -r ../worker.zip . && cd ..
+          aws lambda update-function-code --function-name bsl4-ingestor --zip-file fileb://worker.zip
 
-      - name: Update Lambda Function Code
-        if: steps.check-toggle.outputs.enabled == 'true'
+      - name: Deploy AI Editor Lambda
         run: |
-          aws lambda update-function-code \
-            --function-name "${{ env.INGESTOR_FUNCTION_NAME }}" \
-            --zip-file fileb://worker.zip
-
-  # ----------------------------------------------------------------------------
-  # JOB 3: Deploy AI Editorial Verdict Worker Lambda (Python 3.12)
-  # ----------------------------------------------------------------------------
-  deploy-ai-editor:
-    name: Deploy AI Editorial Worker Lambda
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check Deployment Toggle
-        id: check-toggle
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "enabled=${{ inputs.deploy_ai_editor }}" >> $GITHUB_OUTPUT
-          else
-            echo "enabled=${{ env.DEPLOY_AI_WORKER }}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Checkout Code
-        if: steps.check-toggle.outputs.enabled == 'true'
-        uses: actions/checkout@v4
-
-      # -----------------------------------------------------------------------
-      # INFRA STEP: AWS Connectivity (OIDC)
-      # -----------------------------------------------------------------------
-      - name: Configure AWS (OIDC)
-        if: steps.check-toggle.outputs.enabled == 'true'
-        uses: aws-actions/configure-aws-credentials@v5.1.1
-        with:
-          role-to-assume: ${{ env.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-          audience: "sts.amazonaws.com"
-
-      - name: Setup Python 3.12
-        if: steps.check-toggle.outputs.enabled == 'true'
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-          cache-dependency-path: worker/requirements.txt
-
-      - name: Package AI Editorial Worker
-        if: steps.check-toggle.outputs.enabled == 'true'
-        run: |
-          mkdir -p ai_worker_build
-          pip install --target ai_worker_build -r worker/requirements.txt
-          cp worker/ai_editor.py ai_worker_build/
-          cd ai_worker_build && zip -r ../ai_worker.zip . && cd ..
-
-      - name: Update Lambda Function Code
-        if: steps.check-toggle.outputs.enabled == 'true'
-        run: |
-          aws lambda update-function-code \
-            --function-name "${{ env.AI_EDITOR_FUNCTION_NAME }}" \
-            --zip-file fileb://ai_worker.zip
+          mkdir -p build_ai
+          pip install --target build_ai -r worker/requirements.txt
+          cp worker/ai_editor.py build_ai/
+          cd build_ai && zip -r ../ai_worker.zip . && cd ..
+          aws lambda update-function-code --function-name bsl4-ai-editor --zip-file fileb://ai_worker.zip
