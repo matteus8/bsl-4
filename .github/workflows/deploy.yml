@@ -16,7 +16,7 @@ env:
   DEPLOY_AI_WORKER: "true"         # Toggle: Package & deploy bsl4-ai-editor Lambda
   INVALIDATE_CLOUDFRONT: "true"    # Toggle: Invalidate CloudFront edge cache
   AWS_REGION: "us-east-1"
-  AWS_ROLE_ARN: "arn:aws:iam::973213517498:role/BSL4GitHubActionsRole"
+  AWS_ROLE_ARN: "arn:aws:iam::973213517498:role/githubActions-s3-put-artifacts01"
   S3_BUCKET_NAME: "platformstaq.com"
   CLOUDFRONT_DIST_ID: "E24CTJCZZ478NW"
   INGESTOR_FUNCTION_NAME: "bsl4-ingestor"
