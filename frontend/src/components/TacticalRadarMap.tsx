@@ -542,7 +542,7 @@ export default function TacticalRadarMap({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className={`relative w-full aspect-[2/1] min-h-[320px] sm:min-h-[440px] border rounded-xl overflow-hidden flex items-center justify-center select-none cursor-crosshair ${
+        className={`relative w-full aspect-[2/1] min-h-[320px] sm:min-h-[440px] border rounded-xl overflow-hidden flex items-center justify-center select-none cursor-pointer ${
           isDark ? 'bg-[#101114] border-[#282a33]' : 'bg-[#f1f5f9] border-slate-200'
         }`}
       >
@@ -554,25 +554,25 @@ export default function TacticalRadarMap({
         >
           <g transform={`translate(${500 + pan.x}, ${250 + pan.y}) scale(${zoom}) translate(-500, -250)`}>
             {/* Latitude & Longitude Reference Grid */}
-            <line x1="0" y1="250" x2="1000" y2="250" stroke={isDark ? '#282a33' : '#cbd5e1'} strokeDasharray="3 3" strokeWidth="1" />
-            <line x1="500" y1="0" x2="500" y2="500" stroke={isDark ? '#282a33' : '#cbd5e1'} strokeDasharray="3 3" strokeWidth="1" />
-            <line x1="250" y1="0" x2="250" y2="500" stroke={isDark ? '#1f2128' : '#e2e8f0'} strokeDasharray="2 2" strokeWidth="0.8" />
-            <line x1="750" y1="0" x2="750" y2="500" stroke={isDark ? '#1f2128' : '#e2e8f0'} strokeDasharray="2 2" strokeWidth="0.8" />
+            <line x1="0" y1="250" x2="1000" y2="250" stroke={isDark ? '#282a33' : '#cbd5e1'} strokeDasharray="3 3" strokeWidth="0.8" opacity="0.6" />
+            <line x1="500" y1="0" x2="500" y2="500" stroke={isDark ? '#282a33' : '#cbd5e1'} strokeDasharray="3 3" strokeWidth="0.8" opacity="0.6" />
+            <line x1="250" y1="0" x2="250" y2="500" stroke={isDark ? '#1f2128' : '#e2e8f0'} strokeDasharray="2 2" strokeWidth="0.6" opacity="0.4" />
+            <line x1="750" y1="0" x2="750" y2="500" stroke={isDark ? '#1f2128' : '#e2e8f0'} strokeDasharray="2 2" strokeWidth="0.6" opacity="0.4" />
 
             {/* Landmass Outlines */}
             <path
               d={landPath}
               fill={isDark ? '#21242d' : '#cbd5e1'}
               stroke={isDark ? '#323642' : '#94a3b8'}
-              strokeWidth="0.8"
+              strokeWidth="0.7"
               strokeLinejoin="round"
             />
 
-            {/* Threat Event Static Dots on Vector Map */}
+            {/* Simple Minimal Micro-Dots on Vector Map */}
             {mappedThreats.map((threat) => {
               const isHovered = hoveredThreatId === (threat.id || threat.title);
               const isHighSeverity = threat.severityScore >= 8.0;
-              const radius = isHovered ? 6 : isHighSeverity ? 4.5 : 3.5;
+              const radius = isHovered ? 4 : isHighSeverity ? 2.8 : 2.0;
 
               return (
                 <g key={threat.id || threat.title} className="pointer-events-auto cursor-pointer">
@@ -580,9 +580,10 @@ export default function TacticalRadarMap({
                     cx={threat.mapX}
                     cy={threat.mapY}
                     r={radius}
-                    fill={isHovered ? '#FF007F' : isHighSeverity ? '#f43f5e' : '#fbbf24'}
-                    stroke={isHovered ? '#ffffff' : isHighSeverity ? '#ffffff' : '#101114'}
-                    strokeWidth={isHovered ? 1.5 : 1}
+                    fill={isHovered ? '#FF007F' : isHighSeverity ? '#f43f5e' : '#f59e0b'}
+                    fillOpacity={isHovered ? 1 : 0.85}
+                    stroke={isHovered ? '#ffffff' : '#101114'}
+                    strokeWidth={isHovered ? 1 : 0.5}
                     onClick={(e) => {
                       e.stopPropagation();
                       onSelectThreat(threat);
@@ -594,14 +595,12 @@ export default function TacticalRadarMap({
               );
             })}
 
-            {/* User Target Pin Marker inside SVG Matrix: Crisp Static Marker */}
+            {/* User Target Pin Marker: Minimalist pinpoint */}
             <g
               transform={`translate(${userPinCoords.x}, ${userPinCoords.y})`}
               className="pointer-events-none transition-all duration-300"
             >
-              <circle cx="0" cy="0" r="8" fill="none" stroke="#FF007F" strokeWidth="1.2" opacity="0.6" strokeDasharray="3 3" />
-              <circle cx="0" cy="0" r="4" fill="#FF007F" stroke="#ffffff" strokeWidth="1.5" />
-              <circle cx="0" cy="0" r="1.5" fill="#ffffff" />
+              <circle cx="0" cy="0" r="3" fill="#FF007F" stroke="#ffffff" strokeWidth="1" />
             </g>
           </g>
         </svg>
