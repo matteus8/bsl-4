@@ -513,11 +513,6 @@ export default function TacticalRadarMap({
             <Globe className="w-3.5 h-3.5" />
             2. LOCAL MAP
           </span>
-          <span className={`text-[10px] px-2 py-0.5 rounded font-mono ${
-            isDark ? 'bg-[#21242d] text-slate-400' : 'bg-slate-100 text-slate-600'
-          }`}>
-            Drag to pan &bull; Zoom controls (+ / -) &bull; Click to set target pin
-          </span>
         </div>
         <div className={`flex items-center gap-3 text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
           <span className="flex items-center gap-1.5 font-medium font-mono text-[11px]">
