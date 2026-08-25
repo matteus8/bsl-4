@@ -572,18 +572,22 @@ export default function TacticalRadarMap({
             {mappedThreats.map((threat) => {
               const isHovered = hoveredThreatId === (threat.id || threat.title);
               const isHighSeverity = threat.severityScore >= 8.0;
-              const radius = isHovered ? 4 : isHighSeverity ? 2.8 : 2.0;
+              const radius = isHighSeverity ? 2.8 : 2.0;
 
               return (
-                <g key={threat.id || threat.title} className="pointer-events-auto cursor-pointer">
+                <g 
+                  key={threat.id || threat.title} 
+                  className="pointer-events-auto cursor-pointer"
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
                   <circle
                     cx={threat.mapX}
                     cy={threat.mapY}
                     r={radius}
                     fill={isHovered ? '#FF007F' : isHighSeverity ? '#f43f5e' : '#f59e0b'}
-                    fillOpacity={isHovered ? 1 : 0.85}
-                    stroke={isHovered ? '#ffffff' : '#101114'}
-                    strokeWidth={isHovered ? 1 : 0.5}
+                    fillOpacity={1}
+                    stroke={isHighSeverity ? '#b91c1c' : '#78350f'}
+                    strokeWidth={0.5}
                     onClick={(e) => {
                       e.stopPropagation();
                       onSelectThreat(threat);

@@ -17,7 +17,7 @@ interface AIVerdictBannerProps {
   isDark?: boolean;
 }
 
-export default function AIVerdictBanner({ threats, storedVerdict, loading = false, isDark = true }: AIVerdictBannerProps) {
+export default function AIVerdictBanner({ threats, storedVerdict, isDark = true }: AIVerdictBannerProps) {
   // Dynamically calculate the Global Panic Index & Verdict Narrative (fallback if no stored verdict)
   const verdict = useMemo(() => {
     if (storedVerdict && typeof storedVerdict.panicIndex === 'number' && storedVerdict.verdictText) {
@@ -150,8 +150,8 @@ export default function AIVerdictBanner({ threats, storedVerdict, loading = fals
     };
   }, [threats, storedVerdict]);
 
-  // Loading skeleton state to prevent 1.8 flash on initial page load / refresh
-  if (loading || !verdict) {
+  // Loading skeleton state only on initial cold load before data arrives
+  if (!verdict) {
     return (
       <section className={`border rounded-2xl p-5 sm:p-6 relative overflow-hidden transition-colors shadow-sm ${
         isDark 

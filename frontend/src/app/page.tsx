@@ -10,7 +10,7 @@ import MacroNoiseSection from '@/components/MacroNoiseSection';
 import EventTable from '@/components/ThreatCard';
 import EventDetailModal from '@/components/EventDetailModal';
 import { ThreatRecord, ThreatCategory, UserLocation } from '@/types/threats';
-import { fetchNearbyThreats, fetchLatestEditorialVerdict, EditorialVerdictResponse, triggerProtocolZeroRefresh } from '@/lib/api';
+import { fetchLatestThreats, fetchLatestEditorialVerdict, EditorialVerdictResponse, triggerProtocolZeroRefresh } from '@/lib/api';
 import { calculateDistanceKm } from '@/lib/geo';
 import { Search, Compass, Layers } from 'lucide-react';
 
@@ -45,21 +45,22 @@ export default function Dashboard() {
     isAutoDetected: false,
   });
 
-  const loadData = useCallback(async (lat = userLocation.latitude, lon = userLocation.longitude) => {
-    setLoading(true);
+  const loadData = useCallback(async () => {
     try {
       const [data, verdictData] = await Promise.all([
-        fetchNearbyThreats(lat, lon),
+        fetchLatestThreats(),
         fetchLatestEditorialVerdict(),
       ]);
       setThreats(data);
       if (verdictData) {
         setStoredVerdict(verdictData);
       }
+    } catch (err) {
+      console.error('Error loading telemetry data:', err);
     } finally {
       setLoading(false);
     }
-  }, [userLocation.latitude, userLocation.longitude]);
+  }, []);
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -74,16 +75,16 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    loadData(userLocation.latitude, userLocation.longitude);
-  }, [loadData, userLocation.latitude, userLocation.longitude]);
+    loadData();
+  }, [loadData]);
 
   useEffect(() => {
     // 30-minute automatic background refresh
     const interval = setInterval(() => {
-      loadData(userLocation.latitude, userLocation.longitude);
+      loadData();
     }, 30 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [loadData, userLocation.latitude, userLocation.longitude]);
+  }, [loadData]);
 
   // Compute distances relative to userLocation
   const enrichedThreats = useMemo(() => {
