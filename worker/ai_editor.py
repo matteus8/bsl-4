@@ -3,8 +3,9 @@ BSL-4 AI Editorial Verdict Worker
 Scheduled via AWS EventBridge (every 12 hours) to:
 1. Verify that real threat evidence is present in Supabase PostgreSQL (public.threat_records).
 2. Synthesize multi-vector evidence (seismic, orbital, space weather, severe weather, and market volatility).
-3. Query Google Gemini (using GEMINI_API_KEY from AWS SSM Parameter Store) to generate an authoritative AI Editorial Verdict.
-4. Persist the generated editorial verdict into the 'public.ai_editorial_verdicts' table.
+3. Compute a 100% deterministic, reproducible mathematical Global Panic Index in backend Python.
+4. Prompt Google Gemini (using GEMINI_API_KEY from AWS SSM Parameter Store) to write a qualitative editorial summary and mock social claim debunks based on the deterministic score and evidence.
+5. Persist the generated editorial verdict into 'public.ai_editorial_verdicts' and publish edge S3 JSON snapshots.
 """
 
 import os
@@ -152,7 +153,7 @@ def fetch_recent_evidence(conn, limit=200):
 
 
 def summarize_evidence_for_ai(evidence_list):
-    """Summarize evidence by threat vector for prompt injection."""
+    """Summarize evidence by threat vector for mathematical scoring and prompt injection."""
     quakes = [e for e in evidence_list if e["threat_type"] == "EARTHQUAKE"]
     asteroids = [e for e in evidence_list if e["threat_type"] == "ASTEROID"]
     space_wx = [e for e in evidence_list if e["threat_type"] == "SPACE_WEATHER"]
@@ -170,7 +171,7 @@ def summarize_evidence_for_ai(evidence_list):
         closest_asteroid = min(asteroids, key=get_miss_km)
 
     # Notable Solar
-    solar_highlights = [s["title"] for s in space_wx[:3]]
+    solar_highlights = [s["title"] for s in space_wx[:4]]
 
     # Market moves
     market_highlights = []
@@ -206,42 +207,141 @@ def summarize_evidence_for_ai(evidence_list):
     }
 
 
-def generate_heuristic_editorial_verdict(evidence_summary: dict):
-    """Evidence-based synthesizer fallback when Gemini quota/credits are pending."""
+def calculate_deterministic_panic_index(evidence_summary: dict) -> tuple[float, str, list[str]]:
+    """
+    100% Deterministic, Reproducible Mathematical Global Panic Index Calculator.
+    Scale: 1.0 (Baseline Nominal Equilibrium) to 10.0 (Global Catastrophe).
+    
+    Itemized Multi-Vector Formula:
+    - Base Baseline: 1.0
+    - Seismic Vector (USGS):
+        M >= 8.0: +4.0 pts
+        7.0 <= M < 8.0: +2.5 pts
+        6.0 <= M < 7.0: +1.2 pts
+        5.0 <= M < 6.0: +0.4 pts
+    - Orbital / Asteroid Vector (NASA NeoWs):
+        Close approach <= 1 Lunar Distance (<384,400 km) & Hazardous: +2.5 pts
+        1 < LD <= 5: +0.8 pts
+        5 < LD <= 10: +0.2 pts
+        > 10 LD: +0.0 pts
+    - Space Weather Vector (NASA DONKI):
+        X-Class Flare (X5+): +3.0 pts
+        X-Class Flare (X1-X5): +1.5 pts
+        M-Class Flare (M5+): +0.6 pts
+        M-Class Flare (M1-M4): +0.3 pts
+    - Severe Terrestrial Weather Vector (NWS / NOAA):
+        > 30 active emergency warnings: +1.0 pts
+        10-30 warnings: +0.5 pts
+        1-9 warnings: +0.2 pts
+    - Financial Volatility Vector (Yahoo Finance):
+        VIX surge > 15%: +1.0 pts
+        VIX surge > 5%: +0.4 pts
+    """
     eq = evidence_summary.get("earthquakes", {})
     ast = evidence_summary.get("asteroids", {})
     sp = evidence_summary.get("space_weather", {})
+    wx = evidence_summary.get("terrestrial_weather", {})
+    markets = evidence_summary.get("financial_markets", {}).get("tracked_assets", [])
     
-    max_eq_sev = eq.get("max_severity", 0.0)
-    has_pha = ast.get("is_hazardous", False)
-    solar_count = sp.get("count", 0)
+    score = 1.0
+    key_factors = []
     
-    base_panic = 1.8
-    if max_eq_sev > 6.0:
-        base_panic += 1.5
-    elif max_eq_sev > 4.5:
-        base_panic += 0.4
+    # 1. Seismic Vector
+    max_eq = float(eq.get("max_severity", 0.0))
+    if max_eq >= 8.0:
+        score += 4.0
+        key_factors.append(f"Seismic: Major M{max_eq:.1f} catastrophe (+4.0 pts)")
+    elif max_eq >= 7.0:
+        score += 2.5
+        key_factors.append(f"Seismic: Strong M{max_eq:.1f} earthquake (+2.5 pts)")
+    elif max_eq >= 6.0:
+        score += 1.2
+        key_factors.append(f"Seismic: Moderate M{max_eq:.1f} earthquake (+1.2 pts)")
+    elif max_eq >= 5.0:
+        score += 0.4
+        key_factors.append(f"Seismic: Background M{max_eq:.1f} tremor (+0.4 pts)")
+    else:
+        key_factors.append("Seismic: Stable baseline geodynamic noise")
 
-    if has_pha:
-        base_panic += 0.3
+    # 2. Orbital Vector
+    miss_km = float(ast.get("miss_distance_km", 999999999))
+    is_haz = bool(ast.get("is_hazardous", False))
+    lunar_dist = miss_km / 384400.0 if miss_km > 0 else 999.0
+    if lunar_dist <= 1.0 and is_haz:
+        score += 2.5
+        key_factors.append(f"Orbital: Ultra-close approach ({lunar_dist:.1f} LD, {round(miss_km):,} km) (+2.5 pts)")
+    elif lunar_dist <= 5.0:
+        score += 0.8
+        key_factors.append(f"Orbital: Close flyby at {lunar_dist:.1f} Lunar Distances (+0.8 pts)")
+    elif lunar_dist <= 10.0:
+        score += 0.2
+        key_factors.append(f"Orbital: Distant pass at {lunar_dist:.1f} Lunar Distances (+0.2 pts)")
+    else:
+        key_factors.append("Orbital: Safe deep-space trajectories (> 10 LD)")
 
-    panic_index = min(round(base_panic, 1), 9.9)
-    status_level = "NOMINAL" if panic_index < 4.0 else "ELEVATED HYSTERIA" if panic_index < 7.0 else "CRITICAL ALERT"
+    # 3. Space Weather Vector
+    solar_events = sp.get("recent_events", [])
+    has_x_class = any("X-Class" in s or "X" in s for s in solar_events)
+    has_m_class = any("M-Class" in s or "M" in s for s in solar_events)
+    if has_x_class:
+        score += 1.5
+        key_factors.append("Solar: Elevated X-Class flare activity (+1.5 pts)")
+    elif has_m_class:
+        score += 0.4
+        key_factors.append("Solar: Minor M-Class solar flare (+0.4 pts)")
+    else:
+        key_factors.append("Solar: Nominal background solar radiation flux")
+
+    # 4. Severe Weather Vector
+    wx_count = int(wx.get("count", 0))
+    if wx_count > 30:
+        score += 1.0
+        key_factors.append(f"Weather: Widespread storm alerts ({wx_count} active) (+1.0 pts)")
+    elif wx_count > 10:
+        score += 0.5
+        key_factors.append(f"Weather: Regional severe weather ({wx_count} alerts) (+0.5 pts)")
+    elif wx_count > 0:
+        score += 0.2
+        key_factors.append(f"Weather: Localized advisories ({wx_count} active) (+0.2 pts)")
+    else:
+        key_factors.append("Weather: Clear continental weather baselines")
+
+    # 5. Financial Volatility Vector
+    for m in markets:
+        if "^VIX" in m or "VIX" in m:
+            try:
+                if "+" in m:
+                    parts = m.split(":")
+                    if len(parts) > 1:
+                        pct = float(parts[1].replace("%", "").replace("+", "").strip())
+                        if pct > 15.0:
+                            score += 1.0
+                            key_factors.append(f"Markets: VIX volatility surge (+{pct:.1f}%) (+1.0 pts)")
+                        elif pct > 5.0:
+                            score += 0.4
+                            key_factors.append(f"Markets: VIX elevated (+{pct:.1f}%) (+0.4 pts)")
+            except Exception:
+                pass
+
+    final_score = min(10.0, max(1.0, round(score, 1)))
+    status_level = "NOMINAL" if final_score < 4.0 else "ELEVATED" if final_score < 7.0 else "CRITICAL"
+    
+    return final_score, status_level, key_factors
+
+
+def generate_heuristic_editorial_verdict(evidence_summary: dict, deterministic_panic_index: float, deterministic_status_level: str, key_factors: list):
+    """Fallback narrative synthesizer when Gemini quota/credits are pending."""
+    eq = evidence_summary.get("earthquakes", {})
+    ast = evidence_summary.get("asteroids", {})
     
     verdict_text = (
-        f"Global panic index is at {panic_index}. Wall Street is sweating over speculative noise, "
-        "but the stars are quiet and tectonic plates are asleep. You're fine."
+        f"Global panic index is at {deterministic_panic_index:.1f}. Financial markets are experiencing routine noise, "
+        "but cosmic and tectonic sensor arrays confirm baseline stability. You're fine."
     )
     summary_narrative = (
         f"Physical sensor arrays report {eq.get('count', 0)} seismic events (peak: {eq.get('max_event', 'nominal')}) "
         f"and {ast.get('count', 0)} harmless orbital flybys. Planetary equilibrium remains fully stable."
     )
-    key_factors = [
-        f"Tectonics: Peak event {eq.get('max_event', 'baseline background')}",
-        f"Orbital: Closest approach {ast.get('closest_approach', 'nominal')} passing safely",
-        f"Solar: {solar_count} baseline magnetic flux events",
-        "Macro: Routine market volatility"
-    ]
     
     social_doomscroll = [
         {
@@ -274,17 +374,17 @@ def generate_heuristic_editorial_verdict(evidence_summary: dict):
     ]
 
     return {
-        "panic_index": panic_index,
-        "status_level": status_level,
+        "panic_index": deterministic_panic_index,
+        "status_level": deterministic_status_level,
         "verdict_text": verdict_text,
         "summary_narrative": summary_narrative,
         "key_factors": key_factors,
         "social_doomscroll": social_doomscroll
-    }, "bsl4-evidence-synthesizer"
+    }, "bsl4-deterministic-synthesizer"
 
 
-def call_gemini_api(api_key: str, evidence_summary: dict):
-    """Call Google Gemini REST API with structured JSON response schema, with fallback."""
+def call_gemini_api(api_key: str, evidence_summary: dict, deterministic_panic_index: float, deterministic_status_level: str, calculated_factors: list):
+    """Call Google Gemini REST API to write qualitative editorial text and mock social debunks for the deterministic score."""
     models_to_try = [
         "gemini-3.6-flash",
         "gemini-3.7-flash",
@@ -295,14 +395,17 @@ def call_gemini_api(api_key: str, evidence_summary: dict):
     
     prompt = f"""
 You are the Chief Reality Synthesizer for BSL-4 (a planetary hazard vs. hysteria monitoring station).
-Analyze the following verified, real-time sensor telemetry evidence collected across global systems:
 
-TELEMETRY EVIDENCE:
+DETERMINISTIC PANIC INDEX (PRE-COMPUTED BY BACKEND CODE):
+- Exact Score: {deterministic_panic_index:.1f} / 10
+- Status Level: {deterministic_status_level}
+- Calculated Metric Factors: {json.dumps(calculated_factors)}
+
+VERIFIED SENSOR TELEMETRY EVIDENCE:
 {json.dumps(evidence_summary, indent=2)}
 
 YOUR TASK:
-Synthesize an authoritative, witty, grounded, evidence-based editorial verdict answering the core question:
-"THE WORLD IS ENDING... BUT IS IT REALLY?"
+Write an authoritative, witty, grounded, evidence-based editorial verdict explaining the pre-computed Panic Index score of {deterministic_panic_index:.1f} / 10.
 
 Provide a balanced perspective:
 - If financial markets are panicking (e.g. VIX spike, S&P drop) but physical systems (earthquakes, asteroids, solar flares) are nominal, call out Wall Street's nervous hysteria while reassuring that the physical planet is completely safe.
@@ -310,11 +413,13 @@ Provide a balanced perspective:
 - If a solar flare occurred, explain it is a harmless atmospheric light show (aurora) rather than an apocalypse.
 - Generate 3 realistic, hilarious "Social Media Doomscroll / Panic Tweets" reflecting what viral overreacting accounts on X (Twitter) are posting about today's hazards, paired with a sharp, grounded 1-sentence BSL-4 sanity check.
 
+IMPORTANT: Do NOT invent or alter the Panic Index score. Set "panic_index" to {deterministic_panic_index:.1f} and "status_level" to "{deterministic_status_level}".
+
 Return ONLY a valid JSON object matching this schema:
 {{
-  "panic_index": 2.1,
-  "status_level": "NOMINAL",
-  "verdict_text": "Global panic index is at 2.1. Wall Street is sweating over algorithmic ripples, but the stars are quiet and tectonic plates are asleep. You're fine.",
+  "panic_index": {deterministic_panic_index:.1f},
+  "status_level": "{deterministic_status_level}",
+  "verdict_text": "Global panic index is at {deterministic_panic_index:.1f}. Wall Street is sweating over algorithmic ripples, but the stars are quiet and tectonic plates are asleep. You're fine.",
   "summary_narrative": "A concise 2-3 sentence paragraph providing evidence-based commentary comparing sensor data against human noise.",
   "key_factors": [
     "Tectonics: Baseline background activity only",
@@ -368,33 +473,43 @@ Return ONLY a valid JSON object matching this schema:
     }
 
     last_error = None
-    for model_name in models_to_try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-        try:
+    if api_key:
+        for model in models_to_try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
             req = urllib.request.Request(
                 url,
                 data=json.dumps(payload).encode("utf-8"),
                 headers={"Content-Type": "application/json"},
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=20) as resp:
-                result_json = json.loads(resp.read().decode("utf-8"))
-                candidates = result_json.get("candidates", [])
-                if candidates:
-                    raw_text = candidates[0]["content"]["parts"][0]["text"]
-                    parsed = json.loads(raw_text)
-                    logger.info(f">>> Gemini API successfully generated verdict using model {model_name}.")
-                    return parsed, model_name
-        except Exception as e:
-            logger.warning(f"Gemini API model {model_name} attempt: {e}. Trying next...")
-            last_error = e
+            try:
+                with urllib.request.urlopen(req, timeout=25) as response:
+                    res_body = json.loads(response.read().decode("utf-8"))
+                    text = res_body["candidates"][0]["content"]["parts"][0]["text"]
+                    clean_text = text.strip()
+                    if clean_text.startswith("```json"):
+                        clean_text = clean_text[7:]
+                    if clean_text.startswith("```"):
+                        clean_text = clean_text[3:]
+                    if clean_text.endswith("```"):
+                        clean_text = clean_text[:-3]
+                    
+                    parsed = json.loads(clean_text.strip())
+                    # Ensure deterministic score is locked in
+                    parsed["panic_index"] = deterministic_panic_index
+                    parsed["status_level"] = deterministic_status_level
+                    logger.info(f">>> Gemini API successfully synthesized editorial verdict using model '{model}'.")
+                    return parsed, model
+            except Exception as e:
+                last_error = e
+                logger.warning(f">>> Gemini model '{model}' call failed: {e}. Trying fallback model...")
 
-    logger.warning(f">>> Google Gemini API unavailable ({last_error}). Falling back to BSL-4 evidence synthesizer.")
-    return generate_heuristic_editorial_verdict(evidence_summary)
+    logger.warning(f">>> All Gemini models failed ({last_error}). Using deterministic heuristic synthesizer.")
+    return generate_heuristic_editorial_verdict(evidence_summary, deterministic_panic_index, deterministic_status_level, calculated_factors)
 
 
 def save_editorial_verdict(conn, verdict_data, evidence_summary, model_used):
-    """Save the AI editorial verdict into public.ai_editorial_verdicts table."""
+    """Save generated verdict to Supabase PostgreSQL."""
     insert_sql = """
     INSERT INTO public.ai_editorial_verdicts (
         verdict_text,
@@ -531,33 +646,43 @@ def run_ai_editorial_pipeline():
     try:
         ensure_editorial_table(conn)
 
-        # 1. Check evidence presence first
+        # 1. Fetch real physical and market telemetry
         evidence = fetch_recent_evidence(conn, limit=200)
         if not evidence:
             logger.warning(">>> No threat records found in public.threat_records. Ingestion worker must run first.")
             return {
                 "status": "SKIPPED",
-                "message": "No telemetry evidence found in database. Ingestor pipeline must run first before AI editorial synthesis."
+                "message": "No telemetry evidence found in database. Ingestor pipeline must run first."
             }
 
-        logger.info(f">>> Found {len(evidence)} verified telemetry evidence records. Synthesizing for AI...")
+        logger.info(f">>> Found {len(evidence)} verified telemetry evidence records.")
         evidence_summary = summarize_evidence_for_ai(evidence)
 
-        # 2. Call Google Gemini API (with evidence synthesizer fallback)
-        verdict_data, model_used = call_gemini_api(gemini_key, evidence_summary)
+        # 2. 100% DETERMINISTIC MATHEMATICAL SCORING (computed in Python code, NOT by AI)
+        deterministic_panic_index, deterministic_status_level, calculated_factors = calculate_deterministic_panic_index(evidence_summary)
+        logger.info(f">>> Deterministic Panic Index calculated: {deterministic_panic_index} / 10 ({deterministic_status_level})")
 
-        # 3. Persist into Supabase
+        # 3. Call Google Gemini API (to write qualitative summary & mock social debunks for this exact score)
+        verdict_data, model_used = call_gemini_api(
+            gemini_key, 
+            evidence_summary, 
+            deterministic_panic_index, 
+            deterministic_status_level, 
+            calculated_factors
+        )
+
+        # 4. Persist into Supabase
         verdict_id = save_editorial_verdict(conn, verdict_data, evidence_summary, model_used)
-        logger.info(f">>> Successfully persisted AI Editorial Verdict #{verdict_id}: '{verdict_data.get('verdict_text')}'")
+        logger.info(f">>> Successfully persisted Editorial Verdict #{verdict_id}: '{verdict_data.get('verdict_text')}'")
 
-        # 4. Publish static edge JSON snapshot to S3 for secure frontend consumption
+        # 5. Publish static edge JSON snapshot to S3
         publish_s3_snapshot(verdict_data, evidence_summary, model_used, evidence)
 
         return {
             "status": "SUCCESS",
             "verdict_id": verdict_id,
-            "panic_index": verdict_data.get("panic_index"),
-            "status_level": verdict_data.get("status_level"),
+            "panic_index": deterministic_panic_index,
+            "status_level": deterministic_status_level,
             "verdict_text": verdict_data.get("verdict_text"),
             "model_used": model_used
         }
@@ -566,8 +691,8 @@ def run_ai_editorial_pipeline():
 
 
 def lambda_handler(event, context):
-    """AWS Lambda entry point for EventBridge 3-hour scheduled triggers."""
-    logger.info(">>> AWS Lambda: Starting BSL-4 AI Editorial Verdict execution...")
+    """AWS Lambda entry point for EventBridge scheduled triggers."""
+    logger.info(">>> AWS Lambda: Starting BSL-4 Editorial Verdict execution...")
     result = run_ai_editorial_pipeline()
     logger.info(f">>> Execution completed: {result}")
     return {
@@ -577,6 +702,6 @@ def lambda_handler(event, context):
 
 
 if __name__ == "__main__":
-    print(">>> Running BSL-4 AI Editorial Verdict Worker in local standalone mode...")
+    print(">>> Running BSL-4 Editorial Verdict Worker in local standalone mode...")
     res = run_ai_editorial_pipeline()
     print(json.dumps(res, indent=2))
