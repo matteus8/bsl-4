@@ -22,7 +22,7 @@ By aggregating real-time streams across seismic, atmospheric, orbital, and macro
    Dedicated deep-space monitoring tracking ranked **NASA NeoWs** near-Earth asteroid approaches (sorted by closest lunar distance and flyby velocity) alongside **NASA DONKI** space weather alerts (solar flares, coronal mass ejections, geomagnetic storm Kp-indices).
 
 4. **4. The Macro Noise**  
-   A filterable macroeconomic stream cross-referencing **Yahoo Finance** multi-market volatility indices (`^VIX`, `^GSPC`, `^FTSE`, `^N225`, `^HSI`, `GC=F`, `BTC-USD`) with a **Social Media Hysteria** debunk engine that contrasts viral headlines with verified sensor measurements.
+   A filterable macroeconomic stream cross-referencing **Yahoo Finance** multi-market volatility indices (`VIX`, `GSPC`, `FTSE`, `N225`, `HSI`, `GC=F`, `BTC-USD`) with a **Social Media Hysteria** debunk engine that contrasts viral headlines with verified sensor measurements.
 
 ---
 
