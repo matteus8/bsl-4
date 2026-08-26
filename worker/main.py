@@ -393,7 +393,7 @@ def fetch_weather_alerts():
 
 
 def fetch_global_markets():
-    """Ingests real-time international financial market telemetry across Equities, Crypto, FX, and Volatility."""
+    """Ingests international financial market telemetry across Equities, Crypto, FX, and Volatility."""
     records = []
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 

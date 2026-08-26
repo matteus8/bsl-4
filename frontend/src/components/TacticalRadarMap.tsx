@@ -373,35 +373,46 @@ export default function TacticalRadarMap({
       .filter((t): t is ThreatRecord & { mapX: number; mapY: number } => t !== null);
   }, [threats, projection, activeCategory]);
 
-  // Real-time pure mathematical local sector risk score and factor breakdown
+  // Mathematical local sector risk score and factor breakdown
   const localSectorStats = useMemo(() => {
+    const earthquakes: { threat: ThreatRecord; distanceKm: number; place: string; magnitude: number }[] = [];
     const physicalEvents: { threat: ThreatRecord; distanceKm: number }[] = [];
 
     threats.forEach((t) => {
-      if (t.threatType === 'EARTHQUAKE' || t.threatType === 'TERRESTRIAL_WEATHER') {
-        let dKm = t.distanceKm;
-        if (dKm === undefined) {
-          try {
-            const meta = typeof t.metadata === 'string' ? JSON.parse(t.metadata) : t.metadata;
-            const lat = meta?.latitude ?? meta?.lat;
-            const lon = meta?.longitude ?? meta?.lon;
-            if (typeof lat === 'number' && typeof lon === 'number') {
-              dKm = calculateDistanceKm(userLocation.latitude, userLocation.longitude, lat, lon);
-            }
-          } catch {
-            // Ignored
-          }
-        }
+      let dKm = t.distanceKm;
+      let lat: number | undefined;
+      let lon: number | undefined;
+      let place = '';
+      let mag = 5.0;
 
-        if (dKm !== undefined) {
+      try {
+        const meta = typeof t.metadata === 'string' ? JSON.parse(t.metadata) : t.metadata;
+        lat = meta?.latitude ?? meta?.lat;
+        lon = meta?.longitude ?? meta?.lon;
+        place = meta?.place ?? t.title.replace(/^M\s*[\d.]+\s*-\s*/i, '');
+        mag = typeof meta?.magnitude === 'number' ? meta.magnitude : t.severityScore;
+        if (typeof lat === 'number' && typeof lon === 'number') {
+          dKm = calculateDistanceKm(userLocation.latitude, userLocation.longitude, lat, lon);
+        }
+      } catch {
+        // Ignored
+      }
+
+      if (dKm !== undefined) {
+        if (t.threatType === 'EARTHQUAKE') {
+          earthquakes.push({ threat: t, distanceKm: dKm, place, magnitude: mag });
+          physicalEvents.push({ threat: t, distanceKm: dKm });
+        } else if (t.threatType === 'TERRESTRIAL_WEATHER') {
           physicalEvents.push({ threat: t, distanceKm: dKm });
         }
       }
     });
 
     // Sort by proximity
+    earthquakes.sort((a, b) => a.distanceKm - b.distanceKm);
     physicalEvents.sort((a, b) => a.distanceKm - b.distanceKm);
 
+    const nearestQuake = earthquakes.length > 0 ? earthquakes[0] : null;
     const nearestEvent = physicalEvents.length > 0 ? physicalEvents[0].threat : null;
     const nearestDistanceKm = physicalEvents.length > 0 ? physicalEvents[0].distanceKm : 999999;
 
@@ -495,6 +506,7 @@ export default function TacticalRadarMap({
       badgeClass,
       nearestDistanceKm: Math.round(nearestDistanceKm),
       nearestEvent: nearestEvent as ThreatRecord | null,
+      nearestQuake,
       factors,
     };
   }, [threats, userLocation.latitude, userLocation.longitude]);
@@ -837,9 +849,9 @@ export default function TacticalRadarMap({
               }`}>
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 mt-1" />
                 <div>
-                  {assessment?.nearbySeismic ? (
+                  {localSectorStats.nearestQuake ? (
                     <>
-                      Nearest earthquake: <strong className="text-white">{formatDistance(assessment.nearbySeismic.nearestDistanceKm)}</strong> ({assessment.nearbySeismic.place}).
+                      Nearest earthquake: <strong className="text-white">{formatDistance(localSectorStats.nearestQuake.distanceKm)}</strong> ({localSectorStats.nearestQuake.place}, M {localSectorStats.nearestQuake.magnitude.toFixed(1)}).
                     </>
                   ) : localSectorStats.nearestDistanceKm < 50000 ? (
                     <>
