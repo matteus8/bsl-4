@@ -29,7 +29,9 @@ def load_ssm_secrets():
         response = ssm.get_parameters_by_path(Path="/bsl4/prod", WithDecryption=True)
         for param in response.get("Parameters", []):
             key = param["Name"].split("/")[-1]
-            os.environ[key] = param["Value"]
+            val = param["Value"]
+            if key not in os.environ or not os.environ[key]:
+                os.environ[key] = val
         logger.info(">>> Successfully loaded decrypted secrets from AWS SSM Parameter Store.")
     except Exception as e:
         logger.warning(f"Could not load secrets from SSM (using local environment fallback): {e}")
