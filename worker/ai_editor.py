@@ -476,6 +476,10 @@ Return ONLY a valid JSON object matching this schema:
     if api_key:
         for model in models_to_try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+            parsed_url = urllib.parse.urlparse(url)
+            if parsed_url.scheme not in ("http", "https"):
+                raise ValueError(f"Invalid URL scheme '{parsed_url.scheme}'. Only http and https are permitted.")
+
             req = urllib.request.Request(
                 url,
                 data=json.dumps(payload).encode("utf-8"),
@@ -483,7 +487,7 @@ Return ONLY a valid JSON object matching this schema:
                 method="POST"
             )
             try:
-                with urllib.request.urlopen(req, timeout=25) as response:
+                with urllib.request.urlopen(req, timeout=25) as response:  # nosec: B310
                     res_body = json.loads(response.read().decode("utf-8"))
                     text = res_body["candidates"][0]["content"]["parts"][0]["text"]
                     clean_text = text.strip()

@@ -84,13 +84,17 @@ def get_db_connection():
 
 
 def http_get_json(url, headers=None):
-    """Utility to perform HTTP GET and return parsed JSON."""
+    """Utility to perform HTTP GET and return parsed JSON with URL scheme validation."""
+    parsed_url = urllib.parse.urlparse(url)
+    if parsed_url.scheme not in ("http", "https"):
+        raise ValueError(f"Invalid URL scheme '{parsed_url.scheme}'. Only http and https are permitted.")
+
     req_headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36", "Accept": "application/json"}
     if headers:
         req_headers.update(headers)
     
     req = urllib.request.Request(url, headers=req_headers)
-    with urllib.request.urlopen(req, timeout=10) as response:
+    with urllib.request.urlopen(req, timeout=10) as response:  # nosec: B310
         return json.loads(response.read().decode("utf-8"))
 
 
