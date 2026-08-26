@@ -42,5 +42,8 @@ system-overview.md
 worker/build/
 worker/build_ai/
 worker/package/
+worker_build/
+ai_worker_build/
+*.zip
 worker/*.zip
 *.log

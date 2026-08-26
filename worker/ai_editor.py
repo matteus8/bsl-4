@@ -118,7 +118,45 @@ def ensure_editorial_table(conn):
 
 
 def fetch_recent_evidence(conn, limit=200):
-    """Fetch active recent hazard telemetry records from public.threat_records across all threat categories."""
+    """Fetch active hazard telemetry records directly from S3 threats.json (single source of truth), with DB fallback."""
+    # 1. Primary: Read exact S3 snapshot displayed to users
+    try:
+        bucket_name = os.environ.get("S3_BUCKET_NAME", "platformstaq.com")
+        s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+        obj = s3.get_object(Bucket=bucket_name, Key="data/threats.json")
+        threats_data = json.loads(obj["Body"].read().decode("utf-8"))
+        
+        evidence = []
+        for idx, t in enumerate(threats_data):
+            meta = {}
+            try:
+                if isinstance(t.get("metadata"), str):
+                    meta = json.loads(t["metadata"])
+                elif isinstance(t.get("metadata"), dict):
+                    meta = t["metadata"]
+            except Exception:
+                meta = {}
+
+            evidence.append({
+                "id": t.get("id", idx + 1),
+                "threat_type": t.get("threatType") or t.get("threat_type"),
+                "title": t.get("title", ""),
+                "severity_score": float(t.get("severityScore") or t.get("severity_score", 5.0)),
+                "description": t.get("description", ""),
+                "metadata": meta,
+                "recorded_at": t.get("recordedAt") or t.get("recorded_at", datetime.now(timezone.utc).isoformat()),
+            })
+            
+        if evidence:
+            logger.info(f">>> Successfully loaded {len(evidence)} verified telemetry evidence records directly from S3 threats.json.")
+            return evidence
+    except Exception as e:
+        logger.warning(f"Could not load evidence from S3 threats.json (falling back to database): {e}")
+
+    # 2. Fallback: Query database if S3 is unavailable
+    if not conn:
+        return []
+
     query = """
     SELECT id, threat_type, title, severity_score, description, metadata, recorded_at
     FROM (
