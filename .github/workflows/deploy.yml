@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - 'LICENSE'
+      - 'system-overview.md'
+      - 'application-local.properties.example'
   workflow_dispatch:
 
 # ==============================================================================
@@ -24,85 +30,119 @@ env:
 
 jobs:
   # ============================================================================
-  # GATE 0: SAST & Security Quality Analysis
+  # JOB 0: Selective Change Detection (Monorepo Optimization)
+  # ============================================================================
+  changes:
+    name: Detect Modified Services
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      ingestor: ${{ steps.filter.outputs.ingestor }}
+      ai_editor: ${{ steps.filter.outputs.ai_editor }}
+      python: ${{ steps.filter.outputs.python }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/deploy.yml'
+            ingestor:
+              - 'worker/main.py'
+              - 'worker/requirements.txt'
+              - '.github/workflows/deploy.yml'
+            ai_editor:
+              - 'worker/ai_editor.py'
+              - 'worker/requirements.txt'
+              - '.github/workflows/deploy.yml'
+            python:
+              - 'worker/**'
+              - '.github/workflows/deploy.yml'
+
+  # ============================================================================
+  # GATE 1: SAST & Security Quality Analysis
   # ============================================================================
   security-and-quality:
     name: Security & SAST Quality Gate
+    needs: [changes]
+    if: always() && !cancelled() && !contains(needs.*.result, 'failure') && (needs.changes.outputs.frontend == 'true' || needs.changes.outputs.python == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-        if: env.RUN_SECURITY_GATE == 'true'
+      - uses: actions/checkout@v4
 
       # -----------------------------------------------------------------------
-      # Python SAST & SCA Scanning
+      # Python SAST & SCA Scanning (Runs only when Python code changes)
       # -----------------------------------------------------------------------
       - name: Setup Python 3.12
-        if: env.RUN_SECURITY_GATE == 'true'
-        uses: actions/setup-python@v7
+        if: env.RUN_SECURITY_GATE == 'true' && (needs.changes.outputs.python == 'true' || github.event_name == 'workflow_dispatch')
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
       - name: Install Python SAST & Audit Tools
-        if: env.RUN_SECURITY_GATE == 'true'
+        if: env.RUN_SECURITY_GATE == 'true' && (needs.changes.outputs.python == 'true' || github.event_name == 'workflow_dispatch')
         run: |
           python -m pip install --upgrade pip
           pip install bandit flake8 pip-audit
 
       - name: Python SAST Security Scan (Bandit)
-        if: env.RUN_SECURITY_GATE == 'true'
+        if: env.RUN_SECURITY_GATE == 'true' && (needs.changes.outputs.python == 'true' || github.event_name == 'workflow_dispatch')
         run: |
           echo "Scanning Python codebase for Medium & High security vulnerabilities..."
           bandit -r worker/ -ll -i
 
       - name: Python Dependency CVE Audit (pip-audit)
-        if: env.RUN_SECURITY_GATE == 'true'
+        if: env.RUN_SECURITY_GATE == 'true' && (needs.changes.outputs.python == 'true' || github.event_name == 'workflow_dispatch')
         run: |
           echo "Auditing Python dependencies for known CVEs..."
           pip-audit -r worker/requirements.txt --desc on
 
       - name: Python Syntax & Error Linting (Flake8)
-        if: env.RUN_SECURITY_GATE == 'true'
+        if: env.RUN_SECURITY_GATE == 'true' && (needs.changes.outputs.python == 'true' || github.event_name == 'workflow_dispatch')
         run: |
           echo "Checking Python syntax and fatal errors..."
           flake8 worker/ --count --select=E9,F63,F7,F82 --show-source --statistics
 
       # -----------------------------------------------------------------------
-      # Node.js & TypeScript Security / Quality Gate
+      # Node.js & TypeScript Quality Gate (Runs only when frontend changes)
       # -----------------------------------------------------------------------
       - name: Setup Node.js 22
-        if: env.RUN_SECURITY_GATE == 'true'
-        uses: actions/setup-node@v7
+        if: env.RUN_SECURITY_GATE == 'true' && (needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch')
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
       - name: Frontend Dependency Vulnerability Audit (High/Critical)
-        if: env.RUN_SECURITY_GATE == 'true'
+        if: env.RUN_SECURITY_GATE == 'true' && (needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch')
         working-directory: frontend
         run: |
           echo "Auditing npm dependencies for High and Critical vulnerabilities..."
           npm audit --audit-level=high
 
       - name: TypeScript Static Type Checking
-        if: env.RUN_SECURITY_GATE == 'true'
+        if: env.RUN_SECURITY_GATE == 'true' && (needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch')
         working-directory: frontend
         run: |
           npm ci
           npx tsc --noEmit
 
   # ============================================================================
-  # JOB 1: Deploy Next.js Static Frontend to S3 & CloudFront Edge
+  # JOB 2: Deploy Next.js Static Frontend to S3 & CloudFront Edge
   # ============================================================================
   deploy-frontend:
     name: Deploy Frontend to S3 & Edge
-    needs: [security-and-quality]
+    needs: [changes, security-and-quality]
+    if: always() && !cancelled() && !contains(needs.*.result, 'failure') && (needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         if: env.DEPLOY_FRONTEND == 'true'
 
       # -----------------------------------------------------------------------
@@ -110,14 +150,14 @@ jobs:
       # -----------------------------------------------------------------------
       - name: Configure AWS Credentials (OIDC)
         if: env.DEPLOY_FRONTEND == 'true'
-        uses: aws-actions/configure-aws-credentials@v5.1.1
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Node.js
         if: env.DEPLOY_FRONTEND == 'true'
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'npm'
@@ -151,17 +191,18 @@ jobs:
             --paths "/*"
 
   # ============================================================================
-  # JOB 2: Deploy Ingestion Worker Lambda (Python 3.12)
+  # JOB 3: Deploy Ingestion Worker Lambda (Python 3.12)
   # ============================================================================
   deploy-ingestor:
     name: Deploy Ingestion Worker Lambda
-    needs: [security-and-quality]
+    needs: [changes, security-and-quality]
+    if: always() && !cancelled() && !contains(needs.*.result, 'failure') && (needs.changes.outputs.ingestor == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         if: env.DEPLOY_INGESTOR_WORKER == 'true'
 
       # -----------------------------------------------------------------------
@@ -169,14 +210,14 @@ jobs:
       # -----------------------------------------------------------------------
       - name: Configure AWS Credentials (OIDC)
         if: env.DEPLOY_INGESTOR_WORKER == 'true'
-        uses: aws-actions/configure-aws-credentials@v5.1.1
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Python 3.12
         if: env.DEPLOY_INGESTOR_WORKER == 'true'
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -197,18 +238,31 @@ jobs:
             --function-name "${{ env.INGESTOR_FUNCTION_NAME }}" \
             --zip-file fileb://worker.zip
 
+      - name: Trigger Ingestion Worker Execution
+        if: env.DEPLOY_INGESTOR_WORKER == 'true'
+        run: |
+          echo "Waiting for Lambda function update to settle..."
+          aws lambda wait function-updated --function-name "${{ env.INGESTOR_FUNCTION_NAME }}"
+          echo "Invoking ingestion worker asynchronously to immediately populate S3 data..."
+          aws lambda invoke \
+            --function-name "${{ env.INGESTOR_FUNCTION_NAME }}" \
+            --invocation-type Event \
+            /tmp/ingestor_response.json
+          echo "Ingestor Lambda invoked successfully."
+
   # ============================================================================
-  # JOB 3: Deploy AI Editorial Verdict Worker Lambda (Python 3.12)
+  # JOB 4: Deploy AI Editorial Verdict Worker Lambda (Python 3.12)
   # ============================================================================
   deploy-ai-editor:
     name: Deploy AI Editorial Worker Lambda
-    needs: [security-and-quality]
+    needs: [changes, security-and-quality]
+    if: always() && !cancelled() && !contains(needs.*.result, 'failure') && (needs.changes.outputs.ai_editor == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         if: env.DEPLOY_AI_WORKER == 'true'
 
       # -----------------------------------------------------------------------
@@ -216,14 +270,14 @@ jobs:
       # -----------------------------------------------------------------------
       - name: Configure AWS Credentials (OIDC)
         if: env.DEPLOY_AI_WORKER == 'true'
-        uses: aws-actions/configure-aws-credentials@v5.1.1
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Python 3.12
         if: env.DEPLOY_AI_WORKER == 'true'
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -243,3 +297,15 @@ jobs:
           aws lambda update-function-code \
             --function-name "${{ env.AI_EDITOR_FUNCTION_NAME }}" \
             --zip-file fileb://ai_worker.zip
+
+      - name: Trigger AI Editor Execution
+        if: env.DEPLOY_AI_WORKER == 'true'
+        run: |
+          echo "Waiting for AI Editor Lambda function update to settle..."
+          aws lambda wait function-updated --function-name "${{ env.AI_EDITOR_FUNCTION_NAME }}"
+          echo "Invoking AI Editor asynchronously to generate editorial verdict..."
+          aws lambda invoke \
+            --function-name "${{ env.AI_EDITOR_FUNCTION_NAME }}" \
+            --invocation-type Event \
+            /tmp/ai_editor_response.json
+          echo "AI Editor Lambda invoked successfully."
