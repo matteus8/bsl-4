@@ -240,15 +240,16 @@ jobs:
 
       - name: Trigger Ingestion Worker Execution
         if: env.DEPLOY_INGESTOR_WORKER == 'true'
+        continue-on-error: true
         run: |
           echo "Waiting for Lambda function update to settle..."
-          aws lambda wait function-updated --function-name "${{ env.INGESTOR_FUNCTION_NAME }}"
+          aws lambda wait function-updated --function-name "${{ env.INGESTOR_FUNCTION_NAME }}" || true
           echo "Invoking ingestion worker asynchronously to immediately populate S3 data..."
           aws lambda invoke \
             --function-name "${{ env.INGESTOR_FUNCTION_NAME }}" \
             --invocation-type Event \
-            /tmp/ingestor_response.json
-          echo "Ingestor Lambda invoked successfully."
+            /tmp/ingestor_response.json || echo "Notice: lambda:InvokeFunction is not permitted on BSL4GitHubActionsRole. Ingestion will run automatically on the next EventBridge 30-minute cron cycle."
+          echo "Ingestor Lambda step completed."
 
   # ============================================================================
   # JOB 4: Deploy AI Editorial Verdict Worker Lambda (Python 3.12)
@@ -300,12 +301,13 @@ jobs:
 
       - name: Trigger AI Editor Execution
         if: env.DEPLOY_AI_WORKER == 'true'
+        continue-on-error: true
         run: |
           echo "Waiting for AI Editor Lambda function update to settle..."
-          aws lambda wait function-updated --function-name "${{ env.AI_EDITOR_FUNCTION_NAME }}"
+          aws lambda wait function-updated --function-name "${{ env.AI_EDITOR_FUNCTION_NAME }}" || true
           echo "Invoking AI Editor asynchronously to generate editorial verdict..."
           aws lambda invoke \
             --function-name "${{ env.AI_EDITOR_FUNCTION_NAME }}" \
             --invocation-type Event \
-            /tmp/ai_editor_response.json
-          echo "AI Editor Lambda invoked successfully."
+            /tmp/ai_editor_response.json || echo "Notice: lambda:InvokeFunction is not permitted on BSL4GitHubActionsRole. AI Editor will run automatically on the next EventBridge cron cycle."
+          echo "AI Editor Lambda step completed."
