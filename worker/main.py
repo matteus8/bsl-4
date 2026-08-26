@@ -103,14 +103,19 @@ def http_get_json(url, headers=None):
 # --- TELEMETRY INGESTION FEEDS ---
 
 def fetch_earthquakes():
-    """Ingests 30-day USGS M4.5+ global seismic activity."""
+    """Ingests 30-day USGS M4.5+ global seismic activity, prioritizing major M6.0+ events."""
     records = []
     try:
         url = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_month.geojson"
         data = http_get_json(url)
         features = data.get("features", [])
         
-        for feat in features[:100]:
+        # Priority filter: Guarantee inclusion of all significant (M >= 6.0) earthquakes across 30 days + recent M4.5+ events
+        significant = [f for f in features if float(f.get("properties", {}).get("mag") or 0.0) >= 6.0]
+        recent = [f for f in features if f not in significant][:85]
+        selected_features = sorted(significant + recent, key=lambda f: f.get("properties", {}).get("time") or 0, reverse=True)[:100]
+        
+        for feat in selected_features:
             props = feat.get("properties", {})
             geom = feat.get("geometry", {})
             coords = geom.get("coordinates", [0, 0, 0])
