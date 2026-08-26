@@ -313,8 +313,6 @@ export default function Dashboard() {
               hoveredThreatId={hoveredThreatId}
               setHoveredThreatId={setHoveredThreatId}
               isDark={isDark}
-              onSync={handleSync}
-              isSyncing={isSyncing || loading}
             />
           ) : (
             <div className={`border rounded-xl p-10 text-center space-y-2 transition-colors ${
