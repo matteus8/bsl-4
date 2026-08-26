@@ -614,33 +614,10 @@ def publish_s3_snapshot(verdict_data, evidence_summary, model_used, evidence_lis
             )
         logger.info(f">>> Published s3://{bucket_name}/data/editorial-verdict.json (Panic: {verdict_payload['panicIndex']})")
 
-        # 2. Publish threats.json snapshot to data/ and api/
-        threats_payload = []
-        for e in evidence_list:
-            threats_payload.append({
-                "id": e["id"],
-                "threatType": e["threat_type"],
-                "title": e["title"],
-                "severityScore": e["severity_score"],
-                "description": e["description"],
-                "metadata": json.dumps(e["metadata"]) if isinstance(e["metadata"], dict) else str(e["metadata"]),
-                "recordedAt": e["recorded_at"]
-            })
-
-        for key_path in ["data/threats.json", "api/threats.json"]:
-            s3.put_object(
-                Bucket=bucket_name,
-                Key=key_path,
-                Body=json.dumps(threats_payload, indent=2).encode("utf-8"),
-                ContentType="application/json",
-                CacheControl="no-cache, no-store, max-age=0, must-revalidate"
-            )
-        logger.info(f">>> Published s3://{bucket_name}/data/threats.json ({len(threats_payload)} records)")
-
-        # 3. Automatically invalidate CloudFront cache for instant edge propagation
-        invalidate_cloudfront(["/data/*", "/api/*"])
+        # 2. Automatically invalidate CloudFront cache for instant edge propagation
+        invalidate_cloudfront(["/data/editorial-verdict.json", "/api/editorial-verdict.json"])
     except Exception as e:
-        logger.warning(f"Could not publish JSON snapshots to S3: {e}")
+        logger.warning(f"Could not publish editorial verdict to S3: {e}")
 
 
 def run_ai_editorial_pipeline():

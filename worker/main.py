@@ -493,17 +493,18 @@ def fetch_global_markets():
 # --- SUPABASE PERSISTENCE ---
 
 def persist_records(records):
-    """Inserts latest records into Supabase PostgreSQL, purging previous snapshot to prevent duplicates."""
+    """Inserts latest records into Supabase PostgreSQL inside an atomic transaction."""
     if not records:
         logger.info("No records to persist.")
         return 0
 
-    conn = get_db_connection()
     inserted = 0
+    conn = None
     try:
-        # Determine all unique threat types present in the newly fetched batch
+        conn = get_db_connection()
         threat_types = list({r["threat_type"] for r in records if "threat_type" in r})
 
+        conn.run("BEGIN")
         # Purge previous snapshot records for the refreshed threat categories
         for t_type in threat_types:
             logger.info(f"Purging existing records for threat_type='{t_type}'...")
@@ -523,12 +524,18 @@ def persist_records(records):
                 recorded_at=r["recorded_at"]
             )
             inserted += 1
+        conn.run("COMMIT")
         logger.info(f"Successfully processed and refreshed {inserted} latest records into Supabase.")
     except Exception as e:
+        if conn:
+            try:
+                conn.run("ROLLBACK")
+            except Exception:
+                pass
         logger.error(f"Error persisting to Supabase: {e}")
-        raise e
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
     return inserted
 
@@ -575,10 +582,13 @@ def lambda_handler(event, context):
     all_records.extend(fetch_weather_alerts())
     all_records.extend(fetch_global_markets())
     
-    total_saved = persist_records(all_records)
+    # 1. ALWAYS publish immediate edge snapshot to S3 first so the UI is guaranteed updated
     publish_threats_snapshot_to_s3(all_records)
     
-    logger.info(f">>> Ingestion completed. Total records saved/processed: {total_saved}")
+    # 2. Persist to Supabase Database (with transaction safety for PgBouncer)
+    total_saved = persist_records(all_records)
+    
+    logger.info(f">>> Ingestion completed. Total records saved/processed: {total_saved} (Snapshot: {len(all_records)})")
     
     return {
         "statusCode": 200,
