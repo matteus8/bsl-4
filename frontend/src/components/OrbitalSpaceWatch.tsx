@@ -66,15 +66,22 @@ export default function OrbitalSpaceWatch({
     }
 
     const isHazardous = meta.is_hazardous === true;
-    const width = typeof meta.max_width_meters === 'number' ? meta.max_width_meters : 120;
+    const missKm = typeof meta.miss_distance_km === 'number' ? meta.miss_distance_km : 4200000;
+    const lunarDist = missKm / 384400;
     
-    if (isHazardous) {
-      return 'Classified potentially hazardous by orbital path, but passing millions of km away. Zero atmospheric entry trajectory.';
+    if (lunarDist > 50) {
+      return `Deep-space safe pass (${(missKm / 1e6).toFixed(1)}M km / ${lunarDist.toFixed(0)}x Moon distance). ${isHazardous ? 'PHA orbit geometry but zero threat at this range.' : 'Harmless orbital flyby.'}`;
     }
-    if (width > 500) {
-      return `Passed at comfortable planetary distance (~4M+ km). Dinosaurs would have been jealous. Dinosaurs safe.`;
+    if (lunarDist > 10) {
+      return `Passed at comfortable planetary distance (${(missKm / 1e6).toFixed(1)}M km). Dinosaurs would have been jealous. Planetary defense nominal.`;
     }
-    return `Passed harmlessly outside lunar orbit. Less gravitational effect than a passing cloud.`;
+    if (lunarDist > 2) {
+      return `Regional radar tracking pass (${lunarDist.toFixed(1)} Lunar Distances). Clean trajectory with zero atmospheric entry risk.`;
+    }
+    if (lunarDist > 0.5) {
+      return `Close lunar-bracket approach (${lunarDist.toFixed(1)} LD). Active surveillance by Goldstone Deep Space radar.`;
+    }
+    return `Immediate orbital proximity (${lunarDist.toFixed(2)} LD). Monitored under planetary defense alert.`;
   };
 
   const getSpaceWeatherWittyVerdict = (threat: ThreatRecord) => {

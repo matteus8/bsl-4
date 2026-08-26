@@ -62,20 +62,52 @@ public class NasaService {
                             Map<String, Object> metersMap = (Map<String, Object>) diamMap.get("meters");
                             maxDiameter = (Double) metersMap.get("estimated_diameter_max");
                         }
+                        if (maxDiameter == null) maxDiameter = 50.0;
 
-                        double severity = Boolean.TRUE.equals(isHazardous) ? 9.5 : Math.min((maxDiameter != null ? maxDiameter : 50.0) / 10.0, 5.0);
-                        
-                        // Construct structured JSON metadata
+                        double missKm = 4200000.0;
+                        double velocityKph = 45000.0;
+                        List<Map<String, Object>> cad = (List<Map<String, Object>>) asteroid.get("close_approach_data");
+                        if (cad != null && !cad.isEmpty()) {
+                            try {
+                                Map<String, Object> firstCad = cad.get(0);
+                                Map<String, Object> missMap = (Map<String, Object>) firstCad.get("miss_distance");
+                                if (missMap != null && missMap.containsKey("kilometers")) {
+                                    missKm = Double.parseDouble(missMap.get("kilometers").toString());
+                                }
+                                Map<String, Object> velMap = (Map<String, Object>) firstCad.get("relative_velocity");
+                                if (velMap != null && velMap.containsKey("kilometers_per_hour")) {
+                                    velocityKph = Double.parseDouble(velMap.get("kilometers_per_hour").toString());
+                                }
+                            } catch (Exception ignored) {}
+                        }
+
+                        double lunarDist = (missKm > 0) ? (missKm / 384400.0) : 999.0;
+                        double baseSev = 1.0;
+                        if (lunarDist <= 0.5) baseSev = 9.0;
+                        else if (lunarDist <= 1.0) baseSev = 7.5;
+                        else if (lunarDist <= 3.0) baseSev = 5.5;
+                        else if (lunarDist <= 5.0) baseSev = 4.0;
+                        else if (lunarDist <= 10.0) baseSev = 2.5;
+                        else if (lunarDist <= 20.0) baseSev = 1.8;
+
+                        double sizeBoost = 0.0;
+                        if (maxDiameter >= 500.0) sizeBoost = (lunarDist <= 10.0) ? 1.0 : 0.4;
+                        else if (maxDiameter >= 140.0) sizeBoost = (lunarDist <= 10.0) ? 0.5 : 0.2;
+
+                        double severity = Math.min(10.0, Math.round((baseSev + sizeBoost) * 10.0) / 10.0);
+                        String phaLabel = Boolean.TRUE.equals(isHazardous) ? "PHA (Potentially Hazardous Orbit)" : "Nominal NEO";
+                        String trajectoryStatus = (lunarDist <= 1.0) ? "Ultra-Close Approach" : ((lunarDist <= 5.0) ? "Close Flyby" : ((lunarDist <= 20.0) ? "Regional Pass" : "Deep Space Safe Pass"));
+
                         String jsonMetadata = String.format(
-                            "{\"max_width_meters\": %.2f, \"is_hazardous\": %b}",
-                            maxDiameter != null ? maxDiameter : 50.0, isHazardous
+                            "{\"max_width_meters\": %.1f, \"is_hazardous\": %b, \"miss_distance_km\": %.1f, \"lunar_distance\": %.1f, \"velocity_kph\": %.1f, \"trajectory_status\": \"%s\"}",
+                            maxDiameter, Boolean.TRUE.equals(isHazardous), missKm, lunarDist, velocityKph, trajectoryStatus
                         );
 
                         ThreatRecord record = new ThreatRecord(
                             "ASTEROID",
                             name,
                             severity,
-                            "Hazardous: " + isHazardous + " | Max Width: " + maxDiameter + " meters",
+                            String.format("%s | Max Diameter: %.1fm | Flyby: %.2fM km (%.1fx Lunar Distance) | %s", phaLabel, maxDiameter, missKm / 1e6, lunarDist, trajectoryStatus),
                             jsonMetadata,
                             LocalDate.parse(dateKey).atStartOfDay()
                         );

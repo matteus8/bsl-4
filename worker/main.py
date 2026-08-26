@@ -264,21 +264,52 @@ def fetch_asteroids():
                     except Exception:
                         pass
 
-                severity = 9.5 if is_haz else min(max(max_diam / 20.0, 2.0), 6.5)
-                severity = round(severity, 2)
-                
+                # Compute proximity in Lunar Distances (1 LD ~ 384,400 km)
+                lunar_dist = miss_km / 384400.0 if miss_km > 0 else 999.0
+
+                # Scientific close approach severity formula (1.0 - 10.0 scale)
+                if lunar_dist <= 0.5:
+                    base_sev = 9.0
+                elif lunar_dist <= 1.0:
+                    base_sev = 7.5
+                elif lunar_dist <= 3.0:
+                    base_sev = 5.5
+                elif lunar_dist <= 5.0:
+                    base_sev = 4.0
+                elif lunar_dist <= 10.0:
+                    base_sev = 2.5
+                elif lunar_dist <= 20.0:
+                    base_sev = 1.8
+                else:  # > 20 LD (e.g. 60.67M km is ~158 LD - deep space pass)
+                    base_sev = 1.0
+
+                # Size modifier (larger objects add weight, higher when closer)
+                if max_diam >= 500.0:
+                    size_boost = 1.0 if lunar_dist <= 10.0 else 0.4
+                elif max_diam >= 140.0:
+                    size_boost = 0.5 if lunar_dist <= 10.0 else 0.2
+                else:
+                    size_boost = 0.0
+
+                severity = min(10.0, round(base_sev + size_boost, 1))
+
+                pha_label = "PHA (Potentially Hazardous Orbit)" if is_haz else "Nominal NEO"
+                trajectory_status = "Ultra-Close Approach" if lunar_dist <= 1.0 else ("Close Flyby" if lunar_dist <= 5.0 else ("Regional Pass" if lunar_dist <= 20.0 else "Deep Space Safe Pass"))
+
                 metadata = {
                     "max_width_meters": round(max_diam, 1),
                     "is_hazardous": is_haz,
                     "miss_distance_km": round(miss_km, 1),
-                    "velocity_kph": round(velocity_kph, 1)
+                    "lunar_distance": round(lunar_dist, 1),
+                    "velocity_kph": round(velocity_kph, 1),
+                    "trajectory_status": trajectory_status
                 }
-                
+
                 records.append({
                     "threat_type": "ASTEROID",
                     "title": name,
                     "severity_score": severity,
-                    "description": f"Hazardous: {is_haz} | Max Diameter: {max_diam:.1f}m | Miss Distance: {miss_km/1e6:.2f}M km",
+                    "description": f"{pha_label} | Max Diameter: {max_diam:.1f}m | Flyby: {miss_km/1e6:.2f}M km ({lunar_dist:.1f}x Lunar Distance) | {trajectory_status}",
                     "metadata": json.dumps(metadata),
                     "recorded_at": f"{date_str} 00:00:00"
                 })
