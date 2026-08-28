@@ -85,14 +85,30 @@ export default function OrbitalSpaceWatch({
   };
 
   const getSpaceWeatherWittyVerdict = (threat: ThreatRecord) => {
-    if (threat.title.includes('X-Class')) {
+    const t = threat.title || '';
+    if (t.includes('X-Class') || (t.includes('X') && t.includes('Flare'))) {
       return 'Strong solar flare. High-frequency radio static over sunlit oceans; magnificent auroras in high latitudes. Power grids intact.';
     }
-    if (threat.title.includes('M-Class')) {
+    if (t.includes('M-Class') || (t.includes('M') && t.includes('Flare'))) {
       return 'Moderate solar puff. Aurora likely visible in Alaska, Canada, and Scandinavia. Zero ground hazard.';
     }
-    if (threat.title.includes('CME')) {
+    if (t.includes('C-Class') || (t.includes('C') && t.includes('Flare'))) {
+      return 'Minor solar flare ionization. Normal upper atmospheric background excitation; zero ground disruption.';
+    }
+    if (t.includes('Geomagnetic') || t.includes('GST')) {
+      return 'Geomagnetic disturbance in upper atmosphere. Spectacular northern lights possible; power and GPS systems stable.';
+    }
+    if (t.includes('CME') || t.includes('Coronal Mass Ejection')) {
       return 'Coronal plasma wave traveling through interplanetary space. Earth magnetosphere absorbing kinetic stream normally.';
+    }
+    if (t.includes('RBE') || t.includes('Radiation Belt')) {
+      return 'Elevated Van Allen radiation belt electron flux. Satellite operators monitoring charging; zero ground impact.';
+    }
+    if (t.includes('SEP') || t.includes('Particle')) {
+      return 'Solar proton flux detected by orbital monitors. High-latitude aviation communications notified; no surface risk.';
+    }
+    if (t.includes('HSS') || t.includes('High Speed')) {
+      return 'Fast solar wind stream impacting Earth magnetosphere. Mild auroral brightening at poles.';
     }
     return 'Minor solar energetic particle flux. Satellite operators notified; no human surface effects.';
   };

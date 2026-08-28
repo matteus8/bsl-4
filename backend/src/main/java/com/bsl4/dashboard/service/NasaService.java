@@ -125,15 +125,41 @@ public class NasaService {
 
     public void fetchAndSaveSpaceWeather() {
         try {
-            Map[] response = restClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/DONKI/notifications")
-                            .queryParam("startDate", LocalDate.now().minusDays(30).toString())
-                            .queryParam("endDate", LocalDate.now().toString())
-                            .queryParam("api_key", nasaApiKey)
-                            .build())
-                    .retrieve()
-                    .body(Map[].class);
+            LocalDate end = LocalDate.now();
+            LocalDate start = end.minusDays(30);
+            Map[] response = null;
+
+            // Tier 1: Direct NASA CCMC DONKI endpoint (GSFC)
+            try {
+                RestClient ccmcClient = RestClient.create("https://kauai.ccmc.gsfc.nasa.gov");
+                response = ccmcClient.get()
+                        .uri(uriBuilder -> uriBuilder
+                                .path("/DONKI/WS/get/notifications")
+                                .queryParam("startDate", start.toString())
+                                .queryParam("endDate", end.toString())
+                                .build())
+                        .retrieve()
+                        .body(Map[].class);
+            } catch (Exception ex) {
+                System.err.println(">>> Direct CCMC DONKI endpoint failed, falling back to api.nasa.gov: " + ex.getMessage());
+            }
+
+            // Tier 2: api.nasa.gov gateway
+            if (response == null || response.length == 0) {
+                try {
+                    response = restClient.get()
+                            .uri(uriBuilder -> uriBuilder
+                                    .path("/DONKI/notifications")
+                                    .queryParam("startDate", start.toString())
+                                    .queryParam("endDate", end.toString())
+                                    .queryParam("api_key", nasaApiKey)
+                                    .build())
+                            .retrieve()
+                            .body(Map[].class);
+                } catch (Exception ex) {
+                    System.err.println(">>> api.nasa.gov DONKI endpoint failed: " + ex.getMessage());
+                }
+            }
 
             if (response != null && response.length > 0) {
                 // Purge previous space weather records to keep only the latest snapshot
@@ -144,22 +170,31 @@ public class NasaService {
                     String messageBody = (String) event.get("messageBody");
                     String messageID = (String) event.get("messageID");
                     String messageIssueTime = (String) event.get("messageIssueTime");
+                    String messageURL = (String) event.get("messageURL");
 
                     double severity = calculateSpaceWeatherSeverity(messageType, messageBody);
+                    String title = formatSpaceWeatherTitle(messageType, messageBody);
 
-                    String shortBody = messageBody != null && messageBody.length() > 200 ? messageBody.substring(0, 200) + "..." : messageBody;
+                    String shortBody = messageBody != null && messageBody.length() > 240 ? messageBody.substring(0, 240) + "..." : (messageBody != null ? messageBody : "");
                     String jsonMetadata = String.format(
-                        "{\"message_id\": \"%s\"}",
-                        messageID
+                        "{\"message_id\": \"%s\", \"message_type\": \"%s\", \"message_url\": \"%s\"}",
+                        messageID != null ? messageID : "",
+                        messageType != null ? messageType : "",
+                        messageURL != null ? messageURL : ""
                     );
 
-                    LocalDateTime recordedAt = messageIssueTime != null 
-                        ? LocalDateTime.parse(messageIssueTime.replace("Z", "")) 
-                        : LocalDateTime.now();
+                    LocalDateTime recordedAt = LocalDateTime.now();
+                    if (messageIssueTime != null) {
+                        try {
+                            recordedAt = LocalDateTime.parse(messageIssueTime.replace("Z", ""));
+                        } catch (Exception ignored) {
+                            recordedAt = LocalDateTime.now();
+                        }
+                    }
 
                     ThreatRecord record = new ThreatRecord(
                         "SPACE_WEATHER",
-                        messageType + " Event",
+                        title,
                         severity,
                         shortBody,
                         jsonMetadata,
@@ -168,11 +203,53 @@ public class NasaService {
                     
                     threatRecordRepository.save(record);
                 }
-                System.out.println(">>> Successfully fetched and saved 30 days of DONKI space weather events!");
+                System.out.println(">>> Successfully fetched and saved " + response.length + " DONKI space weather events!");
             }
         } catch (Exception e) {
             System.err.println(">>> Failed to fetch DONKI space weather data: " + e.getMessage());
         }
+    }
+
+    private String formatSpaceWeatherTitle(String messageType, String messageBody) {
+        if (messageType == null) return "Space Weather Alert";
+        String bodyUpper = messageBody != null ? messageBody.toUpperCase() : "";
+
+        if ("FLR".equalsIgnoreCase(messageType) || bodyUpper.contains("SOLAR FLARE")) {
+            Matcher matcher = Pattern.compile("([XMC])([0-9]+(\\.[0-9]+)?)").matcher(bodyUpper);
+            if (matcher.find()) {
+                String flareClass = matcher.group(1);
+                String intensity = matcher.group(2);
+                return flareClass + intensity + " Solar Flare (" + flareClass + "-Class)";
+            }
+            return "Solar Flare Alert (FLR)";
+        }
+        if ("GST".equalsIgnoreCase(messageType) || bodyUpper.contains("GEOMAGNETIC STORM")) {
+            Matcher kpMatcher = Pattern.compile("KP\\s*[:=]?\\s*([0-9])").matcher(bodyUpper);
+            if (kpMatcher.find()) {
+                return "Geomagnetic Storm (Kp " + kpMatcher.group(1) + ")";
+            }
+            return "Geomagnetic Storm Alert (GST)";
+        }
+        if ("CME".equalsIgnoreCase(messageType) || bodyUpper.contains("CORONAL MASS EJECTION")) {
+            Matcher speedMatcher = Pattern.compile("SPEED\\s*[:=]?\\s*~?([0-9]+)").matcher(bodyUpper);
+            if (speedMatcher.find()) {
+                return "Coronal Mass Ejection (~" + speedMatcher.group(1) + " km/s)";
+            }
+            return "Coronal Mass Ejection (CME)";
+        }
+        if ("SEP".equalsIgnoreCase(messageType) || bodyUpper.contains("SOLAR ENERGETIC PARTICLE")) {
+            return "Solar Energetic Particle Event (SEP)";
+        }
+        if ("RBE".equalsIgnoreCase(messageType) || bodyUpper.contains("RADIATION BELT")) {
+            return "Radiation Belt Enhancement (RBE)";
+        }
+        if ("HSS".equalsIgnoreCase(messageType) || bodyUpper.contains("HIGH SPEED STREAM")) {
+            return "High Speed Solar Wind Stream (HSS)";
+        }
+        if ("IPS".equalsIgnoreCase(messageType) || bodyUpper.contains("INTERPLANETARY SHOCK")) {
+            return "Interplanetary Shock Wave (IPS)";
+        }
+        return messageType + " Space Weather Alert";
     }
 
     private double calculateSpaceWeatherSeverity(String messageType, String messageBody) {
@@ -198,7 +275,7 @@ public class NasaService {
 
         // 2. Geomagnetic Storm (GST)
         if ("GST".equalsIgnoreCase(messageType) || bodyUpper.contains("GEOMAGNETIC STORM")) {
-            Matcher kpMatcher = Pattern.compile("KP\\s*=\\s*([0-9])").matcher(bodyUpper);
+            Matcher kpMatcher = Pattern.compile("KP\\s*[:=]?\\s*([0-9])").matcher(bodyUpper);
             if (kpMatcher.find()) {
                 int kp = Integer.parseInt(kpMatcher.group(1));
                 if (kp >= 8) return 9.5;
@@ -210,7 +287,7 @@ public class NasaService {
 
         // 3. Coronal Mass Ejection (CME)
         if ("CME".equalsIgnoreCase(messageType) || bodyUpper.contains("CORONAL MASS EJECTION")) {
-            Matcher speedMatcher = Pattern.compile("SPEED\\s*=\\s*([0-9]+)").matcher(bodyUpper);
+            Matcher speedMatcher = Pattern.compile("SPEED\\s*[:=]?\\s*~?([0-9]+)").matcher(bodyUpper);
             if (speedMatcher.find()) {
                 int speed = Integer.parseInt(speedMatcher.group(1));
                 if (speed > 1500) return 9.0;
@@ -219,6 +296,11 @@ public class NasaService {
             }
             return 6.5;
         }
+
+        if ("SEP".equalsIgnoreCase(messageType)) return 6.0;
+        if ("RBE".equalsIgnoreCase(messageType)) return 5.0;
+        if ("HSS".equalsIgnoreCase(messageType)) return 5.2;
+        if ("IPS".equalsIgnoreCase(messageType)) return 5.8;
 
         return 5.5;
     }

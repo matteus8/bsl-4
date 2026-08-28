@@ -172,16 +172,34 @@ def fetch_earthquakes():
 
 
 def fetch_space_weather():
-    """Ingests 30-day NASA DONKI space weather events."""
+    """Ingests 30-day NASA DONKI space weather events with multi-tier fallback."""
     records = []
-    try:
-        start_date = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%d")
-        end_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        api_key = get_config("NASA_API_KEY", "DEMO_KEY")
-        url = f"https://api.nasa.gov/DONKI/notifications?startDate={start_date}&endDate={end_date}&api_key={api_key}"
-        
-        events = http_get_json(url)
-        if isinstance(events, list):
+    events = None
+    
+    start_date = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%d")
+    end_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    api_key = get_config("NASA_API_KEY", "DEMO_KEY")
+
+    # Tier 1: Direct NASA CCMC DONKI Web Service (GSFC)
+    # Tier 2: api.nasa.gov Umbrella Gateway
+    candidate_urls = [
+        f"https://kauai.ccmc.gsfc.nasa.gov/DONKI/WS/get/notifications?startDate={start_date}&endDate={end_date}",
+        f"https://api.nasa.gov/DONKI/notifications?startDate={start_date}&endDate={end_date}&api_key={api_key}"
+    ]
+
+    for endpoint_url in candidate_urls:
+        try:
+            logger.info(f"Querying NASA DONKI endpoint: {endpoint_url[:65]}...")
+            data = http_get_json(endpoint_url)
+            if isinstance(data, list) and len(data) > 0:
+                events = data
+                logger.info(f"Successfully fetched {len(events)} DONKI notifications from {endpoint_url[:40]}.")
+                break
+        except Exception as e:
+            logger.warning(f"DONKI endpoint {endpoint_url[:45]} failed: {e}")
+
+    if isinstance(events, list) and len(events) > 0:
+        try:
             for ev in events[:60]:
                 msg_type = ev.get("messageType", "SPACE_WEATHER")
                 body = ev.get("messageBody", "")
@@ -190,11 +208,13 @@ def fetch_space_weather():
                 
                 body_upper = body.upper()
                 severity = 5.0
+                title = f"{msg_type} Solar Event"
                 
                 if "FLR" in msg_type or "SOLAR FLARE" in body_upper:
                     match = re.search(r"([XMC])([0-9]+(?:\.[0-9]+)?)", body_upper)
                     if match:
                         f_class, intensity = match.group(1), float(match.group(2))
+                        title = f"{f_class}{intensity} Solar Flare ({f_class}-Class)"
                         if f_class == "X":
                             severity = min(8.5 + (intensity * 0.3), 10.0)
                         elif f_class == "M":
@@ -202,43 +222,100 @@ def fetch_space_weather():
                         elif f_class == "C":
                             severity = min(2.0 + (intensity * 0.3), 5.4)
                     else:
+                        title = "Solar Flare Alert (FLR)"
                         severity = 7.0
                 elif "GST" in msg_type or "GEOMAGNETIC STORM" in body_upper:
-                    kp_match = re.search(r"KP\s*=\s*([0-9])", body_upper)
+                    kp_match = re.search(r"KP\s*[:=]?\s*([0-9])", body_upper) or re.search(r"KP\s*INDEX\s*OF\s*([0-9])", body_upper)
                     if kp_match:
                         kp = int(kp_match.group(1))
+                        title = f"Geomagnetic Storm (Kp {kp})"
                         severity = 9.5 if kp >= 8 else (8.0 if kp >= 6 else (6.0 if kp >= 5 else 5.0))
                     else:
+                        title = "Geomagnetic Storm Alert (GST)"
                         severity = 7.5
                 elif "CME" in msg_type or "CORONAL MASS EJECTION" in body_upper:
-                    spd_match = re.search(r"SPEED\s*=\s*([0-9]+)", body_upper)
+                    spd_match = re.search(r"SPEED\s*[:=]?\s*~?([0-9]+)", body_upper) or re.search(r"~([0-9]+)\s*KM/S", body_upper)
                     if spd_match:
                         spd = int(spd_match.group(1))
+                        title = f"Coronal Mass Ejection (~{spd} km/s)"
                         severity = 9.0 if spd > 1500 else (7.5 if spd > 1000 else (6.0 if spd > 500 else 5.5))
                     else:
+                        title = "Coronal Mass Ejection (CME)"
                         severity = 6.5
+                elif "SEP" in msg_type or "SOLAR ENERGETIC PARTICLE" in body_upper:
+                    title = "Solar Energetic Particle Event (SEP)"
+                    severity = 6.0
+                elif "RBE" in msg_type or "RADIATION BELT" in body_upper:
+                    title = "Radiation Belt Enhancement (RBE)"
+                    severity = 5.0
+                elif "HSS" in msg_type or "HIGH SPEED STREAM" in body_upper:
+                    title = "High Speed Solar Wind Stream (HSS)"
+                    severity = 5.2
+                elif "IPS" in msg_type or "INTERPLANETARY SHOCK" in body_upper:
+                    title = "Interplanetary Shock Wave (IPS)"
+                    severity = 5.8
+                else:
+                    title = f"{msg_type} Space Weather Alert"
 
                 severity = round(severity, 2)
-                short_desc = (body[:200] + "...") if len(body) > 200 else body
+                short_desc = (body[:240] + "...") if len(body) > 240 else body
                 
                 metadata = {
                     "message_id": msg_id,
-                    "message_type": msg_type
+                    "message_type": msg_type,
+                    "message_url": ev.get("messageURL", "")
                 }
                 
                 rec_dt = datetime.fromisoformat(issue_time.replace("Z", "+00:00")) if issue_time else datetime.now(timezone.utc)
                 
                 records.append({
                     "threat_type": "SPACE_WEATHER",
-                    "title": f"{msg_type} Solar Event",
+                    "title": title,
                     "severity_score": severity,
                     "description": short_desc,
                     "metadata": json.dumps(metadata),
                     "recorded_at": rec_dt.strftime("%Y-%m-%d %H:%M:%S")
                 })
-        logger.info(f"Parsed {len(records)} DONKI space weather events.")
-    except Exception as e:
-        logger.error(f"Error fetching NASA DONKI events: {e}")
+            logger.info(f"Parsed {len(records)} DONKI space weather events.")
+        except Exception as e:
+            logger.error(f"Error parsing NASA DONKI events: {e}")
+
+    # Tier 3: If DONKI yields no records, query NOAA SWPC Space Weather Alerts Feed
+    if not records:
+        try:
+            logger.info("Attempting fallback to NOAA Space Weather Prediction Center alerts...")
+            noaa_url = "https://services.swpc.noaa.gov/products/alerts.json"
+            noaa_alerts = http_get_json(noaa_url)
+            if isinstance(noaa_alerts, list) and len(noaa_alerts) > 0:
+                for alt in noaa_alerts[:25]:
+                    msg = alt.get("message", "")
+                    prod_id = alt.get("product_id", "SWPC")
+                    issue_dt = alt.get("issue_datetime", "")
+                    
+                    sev = 5.5
+                    title = f"NOAA Space Weather Alert ({prod_id})"
+                    if "ALERT: Geomagnetic K-index of" in msg:
+                        kp_m = re.search(r"K-INDEX OF\s*([0-9])", msg.upper())
+                        kp_val = int(kp_m.group(1)) if kp_m else 4
+                        title = f"Geomagnetic Storm Alert (Kp {kp_val})"
+                        sev = 8.0 if kp_val >= 6 else 6.0
+                    elif "Radio Blackout" in msg or "FLUX EXCEEDED" in msg.upper():
+                        title = "Solar Radiation / Radio Blackout Alert"
+                        sev = 7.0
+
+                    rec_time = issue_dt[:19] if issue_dt else datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                    records.append({
+                        "threat_type": "SPACE_WEATHER",
+                        "title": title,
+                        "severity_score": sev,
+                        "description": msg[:220] + ("..." if len(msg) > 220 else ""),
+                        "metadata": json.dumps({"product_id": prod_id, "source": "NOAA_SWPC"}),
+                        "recorded_at": rec_time
+                    })
+                logger.info(f"Ingested {len(records)} space weather alerts from NOAA SWPC.")
+        except Exception as e:
+            logger.warning(f"NOAA SWPC fallback failed: {e}")
+
     return records
 
 

@@ -45,9 +45,10 @@ export default function AIVerdictBanner({
           marketVolatilitySpike = t.severityScore;
         }
         if (t.threatType === 'SPACE_WEATHER' && t.title) {
-          if (t.title.includes('X-Class')) highestSolarClass = 'X-Class Flare';
-          else if (t.title.includes('M-Class') && highestSolarClass !== 'X-Class Flare') highestSolarClass = 'M-Class Flare';
-          else if (t.title.includes('C-Class') && highestSolarClass === 'Quiet') highestSolarClass = 'C-Class Flare';
+          const ttl = t.title;
+          if (ttl.includes('X-Class') || (ttl.includes('X') && ttl.includes('Flare'))) highestSolarClass = 'X-Class Flare';
+          else if ((ttl.includes('M-Class') || (ttl.includes('M') && ttl.includes('Flare'))) && highestSolarClass !== 'X-Class Flare') highestSolarClass = 'M-Class Flare';
+          else if ((ttl.includes('C-Class') || (ttl.includes('C') && ttl.includes('Flare'))) && highestSolarClass === 'Quiet') highestSolarClass = 'C-Class Flare';
         }
       });
 
@@ -93,9 +94,10 @@ export default function AIVerdictBanner({
         if (change < marketDip) marketDip = change;
       }
       if (t.threatType === 'SPACE_WEATHER' && t.title) {
-        if (t.title.includes('X-Class')) highestSolarClass = 'X-Class Flare';
-        else if (t.title.includes('M-Class') && highestSolarClass !== 'X-Class Flare') highestSolarClass = 'M-Class Flare';
-        else if (t.title.includes('C-Class') && highestSolarClass === 'Quiet') highestSolarClass = 'C-Class Flare';
+        const ttl = t.title;
+        if (ttl.includes('X-Class') || (ttl.includes('X') && ttl.includes('Flare'))) highestSolarClass = 'X-Class Flare';
+        else if ((ttl.includes('M-Class') || (ttl.includes('M') && ttl.includes('Flare'))) && highestSolarClass !== 'X-Class Flare') highestSolarClass = 'M-Class Flare';
+        else if ((ttl.includes('C-Class') || (ttl.includes('C') && ttl.includes('Flare'))) && highestSolarClass === 'Quiet') highestSolarClass = 'C-Class Flare';
       }
     });
 
