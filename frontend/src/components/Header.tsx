@@ -14,8 +14,8 @@ const GithubIcon = ({ className = 'w-3.5 h-3.5' }: { className?: string }) => (
 );
 
 interface HeaderProps {
-  userLocation: UserLocation;
-  setUserLocation: (loc: UserLocation) => void;
+  userLocation?: UserLocation;
+  setUserLocation?: (loc: UserLocation) => void;
   isDark: boolean;
   toggleTheme: () => void;
 }
@@ -93,8 +93,8 @@ export default function Header({
             </Link>
           </nav>
 
-          {/* Active location indicator */}
-          {userLocation.cityName && (
+          {/* Active location indicator - shown only on dashboard where map/proximity is relevant */}
+          {!isApi && userLocation?.cityName && (
             <div className={`hidden md:flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border font-mono ${
               isDark ? 'text-slate-300 bg-[#181a22] border-[#2c3040]' : 'text-slate-700 bg-slate-50 border-slate-200'
             }`}>

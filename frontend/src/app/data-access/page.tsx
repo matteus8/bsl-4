@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { UserLocation, ThreatRecord } from '@/types/threats';
+import { ThreatRecord } from '@/types/threats';
 import { fetchLatestThreats, fetchLatestEditorialVerdict, EditorialVerdictResponse } from '@/lib/api';
 import {
   Copy,
@@ -52,13 +52,6 @@ export default function RestApiDataPage() {
   // Cache
   const [threatsCache, setThreatsCache] = useState<ThreatRecord[]>([]);
   const [verdictCache, setVerdictCache] = useState<EditorialVerdictResponse | null>(null);
-
-  const [userLocation, setUserLocation] = useState<UserLocation>({
-    latitude: 38.8339,
-    longitude: -104.8214,
-    cityName: 'Colorado Springs, CO, USA',
-    isAutoDetected: false,
-  });
 
   const toggleTheme = () => setIsDark(!isDark);
 
@@ -251,8 +244,6 @@ print(data)`,
       isDark ? 'bg-[#0f1013] text-slate-100' : 'bg-[#f8fafc] text-slate-900'
     }`}>
       <Header
-        userLocation={userLocation}
-        setUserLocation={setUserLocation}
         isDark={isDark}
         toggleTheme={toggleTheme}
       />
