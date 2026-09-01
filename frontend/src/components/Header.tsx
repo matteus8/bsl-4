@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { MapPin, Sun, Moon, ExternalLink } from 'lucide-react';
 import { UserLocation } from '@/types/threats';
 
@@ -24,6 +25,10 @@ export default function Header({
   isDark,
   toggleTheme,
 }: HeaderProps) {
+  const pathname = usePathname();
+  const isHome = pathname === '/' || pathname === '';
+  const isApi = pathname === '/data-access' || pathname?.startsWith('/data-access');
+
   return (
     <header className={`border-b transition-colors ${
       isDark
@@ -31,11 +36,15 @@ export default function Header({
         : 'border-slate-200 bg-white text-slate-900 shadow-sm'
     }`}>
       <div className="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
-        {/* Left: Brand & Headline */}
+        {/* Left: Brand & Headline (Clickable to Home) */}
         <div className="flex items-center gap-3">
-          <div className="px-2.5 py-1 rounded-lg bg-[#FF007F]/10 border border-[#FF007F]/25 text-[#FF007F] font-black text-xs tracking-wider font-mono flex items-center justify-center">
+          <Link
+            href="/"
+            className="px-2.5 py-1 rounded-lg bg-[#FF007F]/10 border border-[#FF007F]/25 hover:border-[#FF007F]/60 text-[#FF007F] font-black text-xs tracking-wider font-mono flex items-center justify-center transition cursor-pointer"
+            title="Return to BSL-4 Home Dashboard"
+          >
             BSL-4
-          </div>
+          </Link>
           <div className="flex items-center">
             <span className={`text-xs sm:text-sm font-bold tracking-wide uppercase font-mono px-2.5 py-1 rounded-md border ${
               isDark 
@@ -47,8 +56,43 @@ export default function Header({
           </div>
         </div>
 
-        {/* Right Controls: Location Pin, GitHub Link, Theme Toggle */}
+        {/* Right Controls: Navigation Tabs, Location Pin, GitHub Link, Theme Toggle */}
         <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Navigation Tabs (Home & REST API) */}
+          <nav className="flex items-center gap-1.5 font-mono text-xs">
+            <Link
+              href="/"
+              className={`px-3 py-1.5 rounded-lg border font-semibold transition ${
+                isHome
+                  ? isDark
+                    ? 'bg-[#232733] text-white border-[#3a4155]'
+                    : 'bg-slate-200 text-slate-900 border-slate-300'
+                  : isDark
+                  ? 'bg-[#181a22] hover:bg-[#222530] border-[#2c3040] text-slate-400 hover:text-slate-200'
+                  : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900'
+              }`}
+              title="Return to Home Dashboard"
+            >
+              Home
+            </Link>
+
+            <Link
+              href="/data-access"
+              className={`px-3 py-1.5 rounded-lg border font-semibold transition ${
+                isApi
+                  ? isDark
+                    ? 'bg-[#232733] text-white border-[#3a4155]'
+                    : 'bg-slate-200 text-slate-900 border-slate-300'
+                  : isDark
+                  ? 'bg-[#181a22] hover:bg-[#222530] border-[#2c3040] text-slate-400 hover:text-slate-200'
+                  : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900'
+              }`}
+              title="Explore RESTful API & Data Feeds"
+            >
+              REST API
+            </Link>
+          </nav>
+
           {/* Active location indicator */}
           {userLocation.cityName && (
             <div className={`hidden md:flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border font-mono ${
@@ -60,19 +104,6 @@ export default function Header({
               </span>
             </div>
           )}
-
-          {/* REST API Hub Navigation */}
-          <Link
-            href="/data-access"
-            className={`px-3 py-1.5 rounded-lg border text-xs font-semibold font-mono transition ${
-              isDark
-                ? 'bg-[#181a22] hover:bg-[#222530] border-[#2c3040] text-slate-200 hover:text-white'
-                : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900'
-            }`}
-            title="Explore RESTful API & Data Pulls"
-          >
-            REST API
-          </Link>
 
           {/* GitHub Source Link */}
           <a
