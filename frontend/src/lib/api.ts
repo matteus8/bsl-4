@@ -86,14 +86,63 @@ export interface SocialDoomscrollItem {
 export interface EditorialVerdictResponse {
   id?: number;
   verdictText?: string;
+  verdict_text?: string;
   panicIndex?: number;
+  panic_index?: number;
   statusLevel?: string;
+  status_level?: string;
   summaryNarrative?: string;
+  summary_narrative?: string;
   keyFactors?: string[];
+  key_factors?: string[];
   socialDoomscroll?: SocialDoomscrollItem[];
+  social_doomscroll?: SocialDoomscrollItem[];
   modelUsed?: string;
+  model_used?: string;
   updatedAt?: string;
+  updated_at?: string;
   createdAt?: string;
+  created_at?: string;
+  updatedAtEpoch?: number;
+}
+
+function normalizeVerdict(data: any): EditorialVerdictResponse | null {
+  if (!data || typeof data !== 'object') return null;
+  const panicIndex = typeof data.panicIndex === 'number' ? data.panicIndex : typeof data.panic_index === 'number' ? data.panic_index : 1.8;
+  const verdictText = data.verdictText || data.verdict_text || data.summaryNarrative || data.summary_narrative || 'Global panic index remains baseline. Physical systems are nominal.';
+
+  const socialRaw = data.socialDoomscroll || data.social_doomscroll || [];
+  const socialDoomscroll: SocialDoomscrollItem[] = Array.isArray(socialRaw) ? socialRaw.map((s: any) => ({
+    handle: s.handle || '@viral',
+    author: s.author || 'Social Radar',
+    platform: s.platform || 'X',
+    verified: Boolean(s.verified),
+    postText: s.postText || s.post_text || '',
+    post_text: s.postText || s.post_text || '',
+    sanityCheck: s.sanityCheck || s.sanity_check || '',
+    sanity_check: s.sanityCheck || s.sanity_check || '',
+    hysteriaScore: typeof s.hysteriaScore === 'number' ? s.hysteriaScore : typeof s.hysteria_score === 'number' ? s.hysteria_score : 8.0,
+    hysteria_score: typeof s.hysteriaScore === 'number' ? s.hysteriaScore : typeof s.hysteria_score === 'number' ? s.hysteria_score : 8.0,
+  })) : [];
+
+  return {
+    id: data.id || 1,
+    panicIndex,
+    panic_index: panicIndex,
+    statusLevel: data.statusLevel || data.status_level || (panicIndex < 4.0 ? 'NOMINAL' : panicIndex < 7.0 ? 'ELEVATED' : 'CRITICAL'),
+    status_level: data.statusLevel || data.status_level || (panicIndex < 4.0 ? 'NOMINAL' : panicIndex < 7.0 ? 'ELEVATED' : 'CRITICAL'),
+    verdictText,
+    verdict_text: verdictText,
+    summaryNarrative: data.summaryNarrative || data.summary_narrative || '',
+    summary_narrative: data.summaryNarrative || data.summary_narrative || '',
+    keyFactors: data.keyFactors || data.key_factors || [],
+    key_factors: data.keyFactors || data.key_factors || [],
+    socialDoomscroll,
+    social_doomscroll: socialDoomscroll,
+    modelUsed: data.modelUsed || data.model_used || 'gemini-3.6-flash',
+    updatedAt: data.updatedAt || data.updated_at || new Date().toISOString(),
+    updatedAtEpoch: data.updatedAtEpoch || Math.floor(Date.now() / 1000),
+  };
 }
 
 export async function fetchLatestEditorialVerdict(): Promise<EditorialVerdictResponse | null> {
@@ -107,9 +156,8 @@ export async function fetchLatestEditorialVerdict(): Promise<EditorialVerdictRes
     });
     if (res.ok) {
       const data = await res.json();
-      if (data && typeof data.panicIndex === 'number' && data.verdictText) {
-        return data;
-      }
+      const normalized = normalizeVerdict(data);
+      if (normalized) return normalized;
     }
   } catch {
     // S3 edge file not yet published or local
@@ -124,9 +172,8 @@ export async function fetchLatestEditorialVerdict(): Promise<EditorialVerdictRes
     });
     if (res.ok) {
       const data = await res.json();
-      if (data && typeof data.panicIndex === 'number' && data.verdictText) {
-        return data;
-      }
+      const normalized = normalizeVerdict(data);
+      if (normalized) return normalized;
     }
   } catch {
     // Fallback

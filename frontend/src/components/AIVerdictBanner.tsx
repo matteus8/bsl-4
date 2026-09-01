@@ -28,10 +28,16 @@ export default function AIVerdictBanner({
   // Compute fallback or blend with stored verdict
   const verdict = useMemo(() => {
     if (loading) return null;
-    if (storedVerdict && storedVerdict.verdictText) {
-      const panicScore = typeof storedVerdict.panicIndex === 'number' ? storedVerdict.panicIndex : 1.8;
+    const rawVerdictText = storedVerdict?.verdictText || storedVerdict?.verdict_text || storedVerdict?.summaryNarrative || storedVerdict?.summary_narrative;
+    if (storedVerdict && rawVerdictText) {
+      const panicScore = typeof storedVerdict.panicIndex === 'number'
+        ? storedVerdict.panicIndex
+        : typeof storedVerdict.panic_index === 'number'
+        ? storedVerdict.panic_index
+        : 1.8;
       const isSafe = panicScore < 4.0;
       const statusTag = isSafe ? 'GLOBAL STATUS: NOMINAL' : panicScore < 7.0 ? 'GLOBAL STATUS: ELEVATED' : 'GLOBAL STATUS: ALERT';
+      const cleanNarrative = rawVerdictText.replace(/^["']|["']$/g, '').trim();
 
       let maxQuakeMag = 0;
       let highestSolarClass = 'Quiet';
@@ -54,7 +60,7 @@ export default function AIVerdictBanner({
 
       return {
         panicScore,
-        narrative: storedVerdict.verdictText,
+        narrative: cleanNarrative,
         isSafe,
         statusTag,
         maxQuakeMag,

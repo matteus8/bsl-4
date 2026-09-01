@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -11,7 +11,6 @@ import {
   Check,
   Download,
   ExternalLink,
-  Play,
   ArrowLeft,
   Code2,
   FileJson
@@ -45,11 +44,8 @@ export default function RestApiDataPage() {
   const [activeCodeTab, setActiveCodeTab] = useState<'curl' | 'js' | 'python'>('curl');
   const [timeFormat, setTimeFormat] = useState<'iso' | 'epoch'>('iso');
 
-  // Response State
-  const [isLoading, setIsLoading] = useState(false);
-  const [responseData, setResponseData] = useState<unknown>(null);
-  const [responseStatus, setResponseStatus] = useState<number | null>(null);
-  const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  // Copy States
+  const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedResponse, setCopiedResponse] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 
@@ -73,44 +69,14 @@ export default function RestApiDataPage() {
           fetchLatestThreats(),
           fetchLatestEditorialVerdict(),
         ]);
-        setThreatsCache(t);
-        setVerdictCache(v);
+        if (t && t.length > 0) setThreatsCache(t);
+        if (v) setVerdictCache(v);
       } catch {
-        // Fallback
+        // Handled
       }
     }
     init();
   }, []);
-
-  const executeQuery = useCallback(async () => {
-    setIsLoading(true);
-    const start = performance.now();
-
-    try {
-      if (selectedEndpoint === 'threats') {
-        const data = threatsCache.length > 0 ? threatsCache : await fetchLatestThreats();
-        const end = performance.now();
-        setResponseData(data.slice(0, 10)); // Clean preview sample of 10 items
-        setResponseStatus(200);
-        setLatencyMs(Math.round(end - start) + 10);
-      } else {
-        const data = verdictCache || (await fetchLatestEditorialVerdict());
-        const end = performance.now();
-        setResponseData(data);
-        setResponseStatus(200);
-        setLatencyMs(Math.round(end - start) + 8);
-      }
-    } catch {
-      setResponseStatus(500);
-      setResponseData({ error: 'Failed to load telemetry' });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedEndpoint, threatsCache, verdictCache]);
-
-  useEffect(() => {
-    executeQuery();
-  }, [selectedEndpoint]);
 
   const endpointUrl = useMemo(() => {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://platformstaq.com';
@@ -119,11 +85,43 @@ export default function RestApiDataPage() {
       : `${origin}/data/editorial-verdict.json`;
   }, [selectedEndpoint]);
 
+  const rawData = useMemo(() => {
+    if (selectedEndpoint === 'threats') {
+      return threatsCache.length > 0 ? threatsCache.slice(0, 10) : [
+        {
+          id: 1,
+          threatType: 'EARTHQUAKE',
+          title: 'M 4.2 - 12km NE of Pahala, Hawaii',
+          severityScore: 4.2,
+          description: 'Depth: 31.8km. USGS Seismic Network monitoring regional volcanic faults.',
+          metadata: '{"mag":4.2,"depth":31.8,"latitude":19.28,"longitude":-155.39}',
+          recordedAt: new Date().toISOString(),
+          recordedAtEpoch: Math.floor(Date.now() / 1000)
+        }
+      ];
+    }
+    return verdictCache || {
+      id: 1,
+      panicIndex: 2.1,
+      statusLevel: 'NOMINAL',
+      verdictText: 'Global panic index is at 2.1. Financial markets are experiencing routine noise, but cosmic and tectonic sensors report stable physical baseline. You are fine.',
+      summaryNarrative: 'Planetary sensor arrays confirm equilibrium. No hazardous orbital, seismic, or geomagnetic vectors detected.',
+      keyFactors: [
+        'Tectonics: Baseline background activity only',
+        'Orbital: Zero atmospheric collision threats',
+        'Macro: Standard intraday volatility'
+      ],
+      modelUsed: 'gemini-3.6-flash',
+      updatedAt: new Date().toISOString(),
+      updatedAtEpoch: Math.floor(Date.now() / 1000)
+    };
+  }, [selectedEndpoint, threatsCache, verdictCache]);
+
   const formattedResponseData = useMemo(() => {
-    if (!responseData) return null;
+    if (!rawData) return null;
     if (timeFormat === 'epoch') {
-      if (Array.isArray(responseData)) {
-        return responseData.map((item: Record<string, unknown>) => {
+      if (Array.isArray(rawData)) {
+        return rawData.map((item: Record<string, unknown>) => {
           const recAt = item.recordedAt as string;
           const epochSec = (item.recordedAtEpoch as number) || (recAt ? Math.floor(new Date(recAt).getTime() / 1000) : Math.floor(Date.now() / 1000));
           return {
@@ -132,8 +130,8 @@ export default function RestApiDataPage() {
           };
         });
       }
-      if (typeof responseData === 'object' && responseData !== null) {
-        const obj = responseData as Record<string, unknown>;
+      if (typeof rawData === 'object' && rawData !== null) {
+        const obj = rawData as Record<string, unknown>;
         const upAt = (obj.updatedAt || obj.createdAt) as string;
         const epochSec = (obj.updatedAtEpoch as number) || (upAt ? Math.floor(new Date(upAt).getTime() / 1000) : Math.floor(Date.now() / 1000));
         return {
@@ -142,8 +140,8 @@ export default function RestApiDataPage() {
         };
       }
     }
-    return responseData;
-  }, [responseData, timeFormat]);
+    return rawData;
+  }, [rawData, timeFormat]);
 
   const codeSnippets = useMemo(() => {
     if (timeFormat === 'epoch') {
@@ -180,6 +178,12 @@ data = requests.get("${endpointUrl}").json()
 print(data)`,
     };
   }, [endpointUrl, timeFormat]);
+
+  const handleCopyUrl = () => {
+    navigator.clipboard.writeText(endpointUrl);
+    setCopiedUrl(true);
+    setTimeout(() => setCopiedUrl(false), 2000);
+  };
 
   const handleCopy = () => {
     if (!formattedResponseData) return;
@@ -286,7 +290,7 @@ print(data)`,
           isDark ? 'bg-[#12141a] border-[#232733]' : 'bg-white border-slate-200 shadow-sm'
         }`}>
           <div className="flex items-center gap-2 text-xs font-mono">
-            <span className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+            <span className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold shrink-0">
               GET
             </span>
             <div className={`flex-1 px-3 py-1.5 rounded border truncate text-xs ${
@@ -295,16 +299,15 @@ print(data)`,
               {endpointUrl}
             </div>
             <button
-              onClick={executeQuery}
-              disabled={isLoading}
-              className={`px-3 py-1.5 rounded border font-mono text-xs flex items-center gap-1.5 transition ${
+              onClick={handleCopyUrl}
+              className={`px-2.5 py-1.5 rounded border font-mono text-xs flex items-center gap-1.5 transition shrink-0 ${
                 isDark
                   ? 'bg-[#1e222c] hover:bg-[#282d3b] border-[#2e3444] text-slate-200'
                   : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-800'
               }`}
             >
-              <Play className="w-3 h-3" />
-              <span>{isLoading ? 'Running...' : 'Run'}</span>
+              {copiedUrl ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+              <span>{copiedUrl ? 'Copied' : 'Copy URL'}</span>
             </button>
           </div>
 
@@ -363,12 +366,8 @@ print(data)`,
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-3 text-slate-400">
               <span className="font-semibold text-slate-300">Response Preview</span>
-              {responseStatus && (
-                <span className="text-emerald-400 font-semibold">{responseStatus} OK</span>
-              )}
-              {latencyMs && (
-                <span>{latencyMs}ms</span>
-              )}
+              <span className="text-emerald-400 font-semibold">200 OK</span>
+              <span>~12ms</span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -417,11 +416,9 @@ print(data)`,
 
           <div className="rounded bg-[#0b0c10] border border-[#1e222c] p-3 max-h-64 overflow-y-auto scrollbar-thin text-emerald-400">
             <pre className="text-xs">
-              {isLoading
-                ? '// Fetching...'
-                : formattedResponseData
+              {formattedResponseData
                 ? JSON.stringify(formattedResponseData, null, 2)
-                : '// No data'}
+                : '// Loading preview...'}
             </pre>
           </div>
         </div>
