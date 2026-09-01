@@ -144,40 +144,77 @@ export default function RestApiDataPage() {
   }, [rawData, timeFormat]);
 
   const codeSnippets = useMemo(() => {
-    if (timeFormat === 'epoch') {
-      return {
-        curl: `curl -s "${endpointUrl}" | jq '.[] | {id, title, severityScore, recordedAtEpoch}'`,
-        js: `// Fetch JSON feed and parse Unix Epoch timestamps
-const res = await fetch("${endpointUrl}");
-const data = await res.json();
+    const isVerdict = selectedEndpoint === 'verdict';
 
-data.forEach(item => {
-  const epochSec = item.recordedAtEpoch || Math.floor(new Date(item.recordedAt).getTime() / 1000);
-  console.log(item.title, "-> Epoch:", epochSec);
-});`,
-        python: `# Fetch JSON feed with Unix Epoch timestamps
+    if (timeFormat === 'epoch') {
+      if (isVerdict) {
+        return {
+          curl: `curl -s "${endpointUrl}" | jq '{id, panicIndex, statusLevel, verdictText, updatedAtEpoch}'`,
+          js: `// Fetch AI Verdict and inspect Unix Epoch timestamp
+const res = await fetch("${endpointUrl}");
+const verdict = await res.json();
+
+const epochSec = verdict.updatedAtEpoch || Math.floor(new Date(verdict.updatedAt).getTime() / 1000);
+console.log(\`Panic Index: \${verdict.panicIndex} / 10 (Timestamp Epoch: \${epochSec})\`);
+console.log(\`Verdict: \${verdict.verdictText}\`);`,
+          python: `# Fetch AI Verdict with Unix Epoch timestamp
 import requests
 
-data = requests.get("${endpointUrl}").json()
-for item in (data if isinstance(data, list) else [data]):
-    epoch = item.get("recordedAtEpoch") or item.get("updatedAtEpoch")
-    print(f"{item.get('title')}: {epoch}")`,
+verdict = requests.get("${endpointUrl}").json()
+epoch = verdict.get("updatedAtEpoch")
+print(f"Panic Index: {verdict.get('panicIndex')} / 10 (Timestamp Epoch: {epoch})")
+print(f"Verdict: {verdict.get('verdictText')}")`,
+        };
+      }
+
+      return {
+        curl: `curl -s "${endpointUrl}" | jq '.[] | {id, title, severityScore, recordedAtEpoch}'`,
+        js: `// Fetch Telemetry feed and parse Unix Epoch timestamps
+const res = await fetch("${endpointUrl}");
+const threats = await res.json();
+
+threats.forEach(t => {
+  const epochSec = t.recordedAtEpoch || Math.floor(new Date(t.recordedAt).getTime() / 1000);
+  console.log(\`\${t.title} -> Epoch: \${epochSec}\`);
+});`,
+        python: `# Fetch Telemetry feed with Unix Epoch timestamps
+import requests
+
+threats = requests.get("${endpointUrl}").json()
+for t in threats:
+    epoch = t.get("recordedAtEpoch")
+    print(f"{t.get('title')}: {epoch}")`,
+      };
+    }
+
+    if (isVerdict) {
+      return {
+        curl: `curl -s "${endpointUrl}" | jq .`,
+        js: `// Fetch AI Verdict JSON feed
+const res = await fetch("${endpointUrl}");
+const verdict = await res.json();
+console.log(verdict);`,
+        python: `# Fetch AI Verdict JSON feed
+import requests
+
+verdict = requests.get("${endpointUrl}").json()
+print(verdict)`,
       };
     }
 
     return {
       curl: `curl -s "${endpointUrl}"`,
-      js: `// Fetch JSON feed
+      js: `// Fetch Telemetry JSON feed
 const res = await fetch("${endpointUrl}");
 const data = await res.json();
 console.log(data);`,
-      python: `# Fetch JSON feed
+      python: `# Fetch Telemetry JSON feed
 import requests
 
 data = requests.get("${endpointUrl}").json()
 print(data)`,
     };
-  }, [endpointUrl, timeFormat]);
+  }, [endpointUrl, selectedEndpoint, timeFormat]);
 
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(endpointUrl);
