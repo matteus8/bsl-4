@@ -139,7 +139,17 @@ jobs:
         working-directory: frontend
         env:
           NEXT_PUBLIC_API_URL: ""
-        run: npm run build
+        run: |
+          npm run build
+          # Create clean URL aliases so direct browser navigations without trailing slashes resolve on S3
+          find out -name "index.html" | while read -r file; do
+            dir=$(dirname "$file")
+            if [ "$dir" != "out" ]; then
+              base=$(basename "$dir")
+              cp "$file" "out/${base}.html" 2>/dev/null || true
+              cp "$file" "out/${base}" 2>/dev/null || true
+            fi
+          done
 
       - name: Sync Static Assets to Amazon S3
         if: env.DEPLOY_FRONTEND == 'true'
@@ -148,6 +158,12 @@ jobs:
             --delete \
             --exclude "api/*" \
             --exclude "data/*"
+          # Explicitly ensure clean extensionless URL is served with text/html content type
+          if [ -f frontend/out/data-access ]; then
+            aws s3 cp frontend/out/data-access "s3://${{ env.S3_BUCKET_NAME }}/data-access" \
+              --content-type "text/html" \
+              --cache-control "public, max-age=0, must-revalidate"
+          fi
 
       - name: Invalidate CloudFront CDN Cache
         if: env.DEPLOY_FRONTEND == 'true' && env.INVALIDATE_CLOUDFRONT == 'true'

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 
 const GithubIcon = ({ className = 'w-3.5 h-3.5' }: { className?: string }) => (
@@ -30,16 +31,16 @@ export default function Footer({ isDark = true }: FooterProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <a
+          <Link
             href="/data-access"
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition font-mono ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition font-mono text-xs ${
               isDark
-                ? 'bg-[#FF007F]/10 hover:bg-[#FF007F]/20 border-[#FF007F]/30 text-[#FF007F]'
-                : 'bg-[#FF007F]/10 hover:bg-[#FF007F]/15 border-[#FF007F]/30 text-[#FF007F]'
+                ? 'bg-[#181a22] hover:bg-[#222530] border-[#2c3040] text-slate-300 hover:text-white'
+                : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900'
             }`}
           >
-            <span>REST API Hub</span>
-          </a>
+            REST API Hub
+          </Link>
 
           <a
             href="https://github.com/matteus8/bsl-4/tree/main"
