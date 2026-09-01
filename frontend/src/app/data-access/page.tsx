@@ -43,6 +43,7 @@ export default function RestApiDataPage() {
   const [isDark, setIsDark] = useState(true);
   const [selectedEndpoint, setSelectedEndpoint] = useState<'threats' | 'verdict'>('threats');
   const [activeCodeTab, setActiveCodeTab] = useState<'curl' | 'js' | 'python'>('curl');
+  const [timeFormat, setTimeFormat] = useState<'iso' | 'epoch'>('iso');
 
   // Response State
   const [isLoading, setIsLoading] = useState(false);
@@ -118,7 +119,54 @@ export default function RestApiDataPage() {
       : `${origin}/data/editorial-verdict.json`;
   }, [selectedEndpoint]);
 
+  const formattedResponseData = useMemo(() => {
+    if (!responseData) return null;
+    if (timeFormat === 'epoch') {
+      if (Array.isArray(responseData)) {
+        return responseData.map((item: Record<string, unknown>) => {
+          const recAt = item.recordedAt as string;
+          const epochSec = (item.recordedAtEpoch as number) || (recAt ? Math.floor(new Date(recAt).getTime() / 1000) : Math.floor(Date.now() / 1000));
+          return {
+            ...item,
+            recordedAtEpoch: epochSec,
+          };
+        });
+      }
+      if (typeof responseData === 'object' && responseData !== null) {
+        const obj = responseData as Record<string, unknown>;
+        const upAt = (obj.updatedAt || obj.createdAt) as string;
+        const epochSec = (obj.updatedAtEpoch as number) || (upAt ? Math.floor(new Date(upAt).getTime() / 1000) : Math.floor(Date.now() / 1000));
+        return {
+          ...obj,
+          updatedAtEpoch: epochSec,
+        };
+      }
+    }
+    return responseData;
+  }, [responseData, timeFormat]);
+
   const codeSnippets = useMemo(() => {
+    if (timeFormat === 'epoch') {
+      return {
+        curl: `curl -s "${endpointUrl}" | jq '.[] | {id, title, severityScore, recordedAtEpoch}'`,
+        js: `// Fetch JSON feed and parse Unix Epoch timestamps
+const res = await fetch("${endpointUrl}");
+const data = await res.json();
+
+data.forEach(item => {
+  const epochSec = item.recordedAtEpoch || Math.floor(new Date(item.recordedAt).getTime() / 1000);
+  console.log(item.title, "-> Epoch:", epochSec);
+});`,
+        python: `# Fetch JSON feed with Unix Epoch timestamps
+import requests
+
+data = requests.get("${endpointUrl}").json()
+for item in (data if isinstance(data, list) else [data]):
+    epoch = item.get("recordedAtEpoch") or item.get("updatedAtEpoch")
+    print(f"{item.get('title')}: {epoch}")`,
+      };
+    }
+
     return {
       curl: `curl -s "${endpointUrl}"`,
       js: `// Fetch JSON feed
@@ -131,11 +179,11 @@ import requests
 data = requests.get("${endpointUrl}").json()
 print(data)`,
     };
-  }, [endpointUrl]);
+  }, [endpointUrl, timeFormat]);
 
   const handleCopy = () => {
-    if (!responseData) return;
-    navigator.clipboard.writeText(JSON.stringify(responseData, null, 2));
+    if (!formattedResponseData) return;
+    navigator.clipboard.writeText(JSON.stringify(formattedResponseData, null, 2));
     setCopiedResponse(true);
     setTimeout(() => setCopiedResponse(false), 2000);
   };
@@ -147,12 +195,12 @@ print(data)`,
   };
 
   const handleDownload = () => {
-    if (!responseData) return;
-    const blob = new Blob([JSON.stringify(responseData, null, 2)], { type: 'application/json' });
+    if (!formattedResponseData) return;
+    const blob = new Blob([JSON.stringify(formattedResponseData, null, 2)], { type: 'application/json' });
     const href = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = href;
-    a.download = `${selectedEndpoint}.json`;
+    a.download = `${selectedEndpoint}-${timeFormat}.json`;
     a.click();
     URL.revokeObjectURL(href);
   };
@@ -312,9 +360,9 @@ print(data)`,
         <div className={`border rounded-lg p-3.5 space-y-2 text-xs font-mono ${
           isDark ? 'bg-[#12141a] border-[#232733]' : 'bg-white border-slate-200 shadow-sm'
         }`}>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-3 text-slate-400">
-              <span>Response Preview</span>
+              <span className="font-semibold text-slate-300">Response Preview</span>
               {responseStatus && (
                 <span className="text-emerald-400 font-semibold">{responseStatus} OK</span>
               )}
@@ -324,6 +372,31 @@ print(data)`,
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Epoch / ISO Timestamp Option */}
+              <div className="flex items-center gap-1 border border-[#272a34] rounded px-1 py-0.5 text-[11px]">
+                <span className="text-slate-500 mr-0.5">Time:</span>
+                <button
+                  onClick={() => setTimeFormat('iso')}
+                  className={`px-1.5 py-0.2 rounded transition ${
+                    timeFormat === 'iso'
+                      ? isDark ? 'bg-[#232733] text-white font-semibold' : 'bg-slate-200 text-slate-900 font-semibold'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  ISO 8601
+                </button>
+                <button
+                  onClick={() => setTimeFormat('epoch')}
+                  className={`px-1.5 py-0.2 rounded transition ${
+                    timeFormat === 'epoch'
+                      ? isDark ? 'bg-[#232733] text-white font-semibold' : 'bg-slate-200 text-slate-900 font-semibold'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Unix Epoch
+                </button>
+              </div>
+
               <button
                 onClick={handleCopy}
                 className="px-2 py-0.5 rounded bg-[#1e222c] hover:bg-[#282d3b] text-[11px] text-slate-300 flex items-center gap-1 transition"
@@ -346,8 +419,8 @@ print(data)`,
             <pre className="text-xs">
               {isLoading
                 ? '// Fetching...'
-                : responseData
-                ? JSON.stringify(responseData, null, 2)
+                : formattedResponseData
+                ? JSON.stringify(formattedResponseData, null, 2)
                 : '// No data'}
             </pre>
           </div>

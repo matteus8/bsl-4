@@ -631,6 +631,7 @@ def publish_s3_snapshot(verdict_data, evidence_summary, model_used, evidence_lis
         s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-east-1"))
         
         # 1. Publish editorial-verdict.json to data/ and api/
+        now_dt = datetime.now(timezone.utc)
         verdict_payload = {
             "id": verdict_data.get("id", 1),
             "panicIndex": float(verdict_data.get("panic_index", 2.0)),
@@ -640,7 +641,8 @@ def publish_s3_snapshot(verdict_data, evidence_summary, model_used, evidence_lis
             "keyFactors": verdict_data.get("key_factors", []),
             "socialDoomscroll": verdict_data.get("social_doomscroll", []),
             "modelUsed": str(model_used),
-            "updatedAt": datetime.now(timezone.utc).isoformat()
+            "updatedAt": now_dt.isoformat(),
+            "updatedAtEpoch": int(now_dt.timestamp())
         }
         for key_path in ["data/editorial-verdict.json", "api/editorial-verdict.json"]:
             s3.put_object(

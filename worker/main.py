@@ -653,6 +653,16 @@ def publish_threats_snapshot_to_s3(records):
         s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-east-1"))
         formatted = []
         for idx, r in enumerate(records):
+            rec_at = r.get("recorded_at", "")
+            epoch_sec = 0
+            try:
+                if isinstance(rec_at, str) and rec_at:
+                    epoch_sec = int(datetime.fromisoformat(rec_at.replace("Z", "+00:00")).timestamp())
+                else:
+                    epoch_sec = int(datetime.now(timezone.utc).timestamp())
+            except Exception:
+                epoch_sec = int(datetime.now(timezone.utc).timestamp())
+
             formatted.append({
                 "id": idx + 1,
                 "threatType": r["threat_type"],
@@ -660,7 +670,8 @@ def publish_threats_snapshot_to_s3(records):
                 "severityScore": float(r["severity_score"]),
                 "description": r["description"],
                 "metadata": json.dumps(r["metadata"]) if isinstance(r["metadata"], dict) else str(r["metadata"]),
-                "recordedAt": r["recorded_at"]
+                "recordedAt": r["recorded_at"],
+                "recordedAtEpoch": epoch_sec
             })
 
         # 1. Publish Master Unified Telemetry Snapshots
