@@ -8,8 +8,6 @@ import { UserLocation, ThreatRecord } from '@/types/threats';
 import { fetchLatestThreats, fetchLatestEditorialVerdict, EditorialVerdictResponse } from '@/lib/api';
 import {
   Terminal,
-  Database,
-  Globe,
   Zap,
   Copy,
   Check,
@@ -17,12 +15,9 @@ import {
   ExternalLink,
   Play,
   Layers,
-  ShieldCheck,
-  Cpu,
   ArrowLeft,
   Search,
   Code2,
-  Server,
   FileJson
 } from 'lucide-react';
 
@@ -444,51 +439,37 @@ func main() {
       />
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-6 space-y-8">
-        {/* Navigation Breadcrumb & Page Banner */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#282a33]/60 pb-5">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <Link
-                href="/"
-                className={`inline-flex items-center gap-1.5 text-xs font-mono transition-colors ${
-                  isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                Back to Live Telemetry Dashboard
-              </Link>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-[#FF007F]/10 border border-[#FF007F]/30 text-[#FF007F]">
-                <Terminal className="w-5 h-5" />
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-black font-mono tracking-tight flex items-center gap-2">
-                  RESTful Data Pulls & API Hub
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FF007F]/15 border border-[#FF007F]/40 text-[#FF007F]">
-                    v1.0 LIVE
-                  </span>
-                </h1>
-                <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                  Query planetary hazard feeds, AI editorial syntheses, and raw telemetry via zero-latency edge JSON snapshots and Supabase PostgREST.
-                </p>
-              </div>
-            </div>
+        {/* Header Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#282a33]/60 pb-4">
+          <div className="space-y-1">
+            <Link
+              href="/"
+              className={`inline-flex items-center gap-1.5 text-xs font-mono transition-colors ${
+                isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Back to Dashboard
+            </Link>
+            <h1 className="text-lg sm:text-xl font-bold font-mono tracking-tight flex items-center gap-2">
+              <Terminal className="w-4 h-4 text-[#FF007F]" />
+              REST API & Live Data Pulls
+            </h1>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex items-center gap-2">
             <a
               href="/data/threats.json"
               target="_blank"
               rel="noopener noreferrer"
-              className={`px-3 py-1.5 rounded-xl border text-xs font-mono font-semibold transition flex items-center gap-1.5 ${
+              className={`px-2.5 py-1 rounded-lg border text-xs font-mono transition flex items-center gap-1.5 ${
                 isDark
                   ? 'bg-[#181a22] hover:bg-[#222530] border-[#2c3040] text-slate-200'
                   : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
               }`}
             >
               <FileJson className="w-3.5 h-3.5 text-[#FF007F]" />
-              <span>Raw threats.json</span>
+              <span>threats.json</span>
               <ExternalLink className="w-3 h-3 text-slate-500" />
             </a>
 
@@ -496,14 +477,14 @@ func main() {
               href="/data/editorial-verdict.json"
               target="_blank"
               rel="noopener noreferrer"
-              className={`px-3 py-1.5 rounded-xl border text-xs font-mono font-semibold transition flex items-center gap-1.5 ${
+              className={`px-2.5 py-1 rounded-lg border text-xs font-mono transition flex items-center gap-1.5 ${
                 isDark
                   ? 'bg-[#181a22] hover:bg-[#222530] border-[#2c3040] text-slate-200'
                   : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
               }`}
             >
               <Zap className="w-3.5 h-3.5 text-amber-400" />
-              <span>Raw verdict.json</span>
+              <span>verdict.json</span>
               <ExternalLink className="w-3 h-3 text-slate-500" />
             </a>
           </div>
@@ -831,214 +812,6 @@ func main() {
             <pre className="p-4 pt-10 overflow-x-auto text-slate-300 leading-relaxed">
               <code>{codeSnippets[activeCodeTab]}</code>
             </pre>
-          </div>
-        </div>
-
-        {/* ================================================================ */}
-        {/* SECTION 4: ARCHITECTURAL RECOMMENDATIONS (Super Cheap Strategy)  */}
-        {/* ================================================================ */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-[#FF007F]" />
-            <h2 className="text-xs font-bold uppercase tracking-wider font-mono text-[#FF007F]">
-              Architectural Integration Blueprint: High-Performance, Super-Cheap Strategy
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Approach 1 Card */}
-            <div className={`border rounded-2xl p-5 transition-colors flex flex-col justify-between gap-4 ${
-              isDark ? 'bg-[#14161f] border-[#242838]' : 'bg-white border-slate-200 shadow-sm'
-            }`}>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="p-1.5 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-400">
-                      <Globe className="w-4 h-4" />
-                    </span>
-                    <h3 className="text-sm font-bold font-mono text-slate-100">
-                      Approach 1: Static Edge S3 Snapshot Pipeline
-                    </h3>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                    Recommended ($0/mo)
-                  </span>
-                </div>
-
-                <p className={`text-xs leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                  Ingestion Lambdas periodically (every 30m) write partitioned JSON snapshots to S3 (<code>/data/threats.json</code>, <code>/data/earthquakes.json</code>, <code>/data/editorial-verdict.json</code>). AWS CloudFront distributes them across 600+ edge locations worldwide.
-                </p>
-
-                <div className={`p-3 rounded-xl border space-y-2 text-xs font-mono ${
-                  isDark ? 'bg-[#0e1015] border-[#222533] text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
-                }`}>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-400">Monthly Cost:</span>
-                    <span className="text-emerald-400 font-bold">$0.00 / month (AWS 1TB CloudFront Free Tier)</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-400">Edge Latency:</span>
-                    <span className="text-amber-400 font-bold">5ms – 15ms Worldwide</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-400">Database Load:</span>
-                    <span className="text-cyan-400 font-bold">0 direct queries (100% DB shielding)</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-400">DDOS Immunity:</span>
-                    <span className="text-purple-400 font-bold">Built-in AWS Shield & Edge Caching</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5 text-xs">
-                  <h4 className="font-bold font-mono text-slate-300 text-[11px] uppercase tracking-wide">Key Advantages:</h4>
-                  <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-400 leading-relaxed">
-                    <li>Zero server maintenance and zero database connection exhaustion (PgBouncer bypass).</li>
-                    <li>Guaranteed 100% uptime even if backend databases or external APIs undergo maintenance.</li>
-                    <li>Direct static caching makes it effortless to integrate into mobile apps, IoT boards, or dashboards.</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-[#282a33]/50">
-                <span className="text-[11px] font-mono text-slate-400">
-                  <strong>Best for:</strong> High-traffic read-heavy distribution, public developer feeds, mobile widgets.
-                </span>
-              </div>
-            </div>
-
-            {/* Approach 2 Card */}
-            <div className={`border rounded-2xl p-5 transition-colors flex flex-col justify-between gap-4 ${
-              isDark ? 'bg-[#14161f] border-[#242838]' : 'bg-white border-slate-200 shadow-sm'
-            }`}>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="p-1.5 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-400">
-                      <Database className="w-4 h-4" />
-                    </span>
-                    <h3 className="text-sm font-bold font-mono text-slate-100">
-                      Approach 2: Supabase PostgREST + Edge RLS
-                    </h3>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-500/15 text-purple-400 border border-purple-500/30">
-                    SQL Filterable ($0/mo)
-                  </span>
-                </div>
-
-                <p className={`text-xs leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                  Expose Supabase&apos;s built-in PostgREST REST API with PostgreSQL Row Level Security (RLS) policies allowing public anonymous <code>SELECT</code> queries. Clients can perform dynamic SQL filtering, sorting, pagination, and JSONB searches.
-                </p>
-
-                <div className={`p-3 rounded-xl border space-y-2 text-xs font-mono ${
-                  isDark ? 'bg-[#0e1015] border-[#222533] text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
-                }`}>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-400">Monthly Cost:</span>
-                    <span className="text-emerald-400 font-bold">$0.00 / month (Supabase Free Tier 500MB)</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-400">Query Flexibility:</span>
-                    <span className="text-amber-400 font-bold">Full SQL Operators (gte, lte, eq, in, jsonb)</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-400">Access Security:</span>
-                    <span className="text-cyan-400 font-bold">PostgreSQL Row-Level Security (RLS)</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-400">Real-time WebSockets:</span>
-                    <span className="text-purple-400 font-bold">Supported out-of-the-box</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5 text-xs">
-                  <h4 className="font-bold font-mono text-slate-300 text-[11px] uppercase tracking-wide">Key Advantages:</h4>
-                  <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-400 leading-relaxed">
-                    <li>Dynamic server-side filtering without writing backend controller endpoints.</li>
-                    <li>Native support for pagination (<code>limit</code> & <code>offset</code>) and complex metadata nested JSON queries.</li>
-                    <li>Optional Realtime WebSocket subscriptions for immediate push updates upon ingestion.</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-[#282a33]/50">
-                <span className="text-[11px] font-mono text-slate-400">
-                  <strong>Best for:</strong> Advanced analytics, customized complex queries, data science integrations.
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ================================================================ */}
-        {/* SECTION 5: PIPELINE & CI/CD ARCHITECTURAL DIAGRAM                */}
-        {/* ================================================================ */}
-        <div className={`border rounded-2xl p-5 transition-colors space-y-4 ${
-          isDark ? 'bg-[#14161f] border-[#242838]' : 'bg-white border-slate-200 shadow-sm'
-        }`}>
-          <div className="flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-[#FF007F]" />
-            <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-slate-200">
-              BSL-4 End-to-End Serverless Data Pipeline Architecture
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs font-mono">
-            {/* Step 1 */}
-            <div className={`p-3.5 rounded-xl border space-y-2 ${
-              isDark ? 'bg-[#0f1015] border-[#232738]' : 'bg-slate-50 border-slate-200'
-            }`}>
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-slate-400">01. INGESTION</span>
-                <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/15 text-amber-400">Every 30m</span>
-              </div>
-              <h4 className="font-bold text-slate-200 text-xs">EventBridge & Lambda</h4>
-              <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
-                <code>bsl4-ingestor</code> Lambda queries USGS, NASA NeoWs, NASA DONKI, NOAA Weather, and Yahoo Finance. Computes hazard severity metrics.
-              </p>
-            </div>
-
-            {/* Step 2 */}
-            <div className={`p-3.5 rounded-xl border space-y-2 ${
-              isDark ? 'bg-[#0f1015] border-[#232738]' : 'bg-slate-50 border-slate-200'
-            }`}>
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-slate-400">02. PERSISTENCE</span>
-                <span className="px-1.5 py-0.5 rounded text-[10px] bg-purple-500/15 text-purple-400">PostgreSQL</span>
-              </div>
-              <h4 className="font-bold text-slate-200 text-xs">Supabase Database</h4>
-              <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
-                Records are committed to <code>public.threat_records</code>. PgBouncer handles connection pooling with SSL encryption.
-              </p>
-            </div>
-
-            {/* Step 3 */}
-            <div className={`p-3.5 rounded-xl border space-y-2 ${
-              isDark ? 'bg-[#0f1015] border-[#232738]' : 'bg-slate-50 border-slate-200'
-            }`}>
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-slate-400">03. AI SYNTHESIS</span>
-                <span className="px-1.5 py-0.5 rounded text-[10px] bg-[#FF007F]/15 text-[#FF007F]">Every 12h</span>
-              </div>
-              <h4 className="font-bold text-slate-200 text-xs">AI Editor & Gemini</h4>
-              <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
-                <code>bsl4-ai-editor</code> calculates deterministic Panic Index (1.0–10.0) and prompts Google Gemini for reality check summaries.
-              </p>
-            </div>
-
-            {/* Step 4 */}
-            <div className={`p-3.5 rounded-xl border space-y-2 ${
-              isDark ? 'bg-[#0f1015] border-[#232738]' : 'bg-slate-50 border-slate-200'
-            }`}>
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-slate-400">04. EDGE CDN</span>
-                <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-500/15 text-blue-400">Global Edge</span>
-              </div>
-              <h4 className="font-bold text-slate-200 text-xs">S3 & CloudFront</h4>
-              <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
-                S3 JSON snapshots are invalidated across CloudFront distribution <code>E24CTJCZZ478NW</code> for instant, zero-cost edge delivery.
-              </p>
-            </div>
           </div>
         </div>
       </main>
