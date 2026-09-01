@@ -29,20 +29,33 @@ export default function Footer({ isDark = true }: FooterProps) {
           <span>&copy; {new Date().getFullYear()} BSL-4</span>
         </div>
 
-        <a
-          href="https://github.com/matteus8/bsl-4/tree/main"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border transition ${
-            isDark
-              ? 'bg-[#181a22] hover:bg-[#222530] border-[#2c3040] text-slate-300 hover:text-white'
-              : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900'
-          }`}
-        >
-          <GithubIcon className="w-3.5 h-3.5" />
-          <span>GitHub</span>
-          <ExternalLink className="w-3 h-3 text-slate-500" />
-        </a>
+        <div className="flex items-center gap-2">
+          <a
+            href="/data-access"
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition font-mono ${
+              isDark
+                ? 'bg-[#FF007F]/10 hover:bg-[#FF007F]/20 border-[#FF007F]/30 text-[#FF007F]'
+                : 'bg-[#FF007F]/10 hover:bg-[#FF007F]/15 border-[#FF007F]/30 text-[#FF007F]'
+            }`}
+          >
+            <span>REST API Hub</span>
+          </a>
+
+          <a
+            href="https://github.com/matteus8/bsl-4/tree/main"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border transition ${
+              isDark
+                ? 'bg-[#181a22] hover:bg-[#222530] border-[#2c3040] text-slate-300 hover:text-white'
+                : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900'
+            }`}
+          >
+            <GithubIcon className="w-3.5 h-3.5" />
+            <span>GitHub</span>
+            <ExternalLink className="w-3 h-3 text-slate-500" />
+          </a>
+        </div>
       </div>
     </footer>
   );

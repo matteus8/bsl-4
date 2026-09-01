@@ -622,8 +622,32 @@ def persist_records(records):
     return inserted
 
 
+def invalidate_cloudfront(paths=None):
+    """Trigger CloudFront cache invalidation so the edge instantly serves fresh snapshots."""
+    dist_id = os.environ.get("CLOUDFRONT_DIST_ID", "E24CTJCZZ478NW")
+    if not dist_id:
+        return
+    if paths is None:
+        paths = ["/data/*", "/api/*"]
+    try:
+        cf = boto3.client("cloudfront", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+        cf.create_invalidation(
+            DistributionId=dist_id,
+            InvalidationBatch={
+                "Paths": {
+                    "Quantity": len(paths),
+                    "Items": paths
+                },
+                "CallerReference": f"ingestor-{int(datetime.now(timezone.utc).timestamp())}"
+            }
+        )
+        logger.info(f">>> CloudFront cache invalidated for {paths} on distribution {dist_id}")
+    except Exception as e:
+        logger.warning(f"Could not invalidate CloudFront cache: {e}")
+
+
 def publish_threats_snapshot_to_s3(records):
-    """Publish threats snapshot to S3 edge file for zero-credential frontend consumption."""
+    """Publish unified and category-partitioned threats snapshots to S3 edge for zero-credential, zero-cost consumption."""
     bucket_name = os.environ.get("S3_BUCKET_NAME", "platformstaq.com")
     try:
         s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-east-1"))
@@ -638,17 +662,43 @@ def publish_threats_snapshot_to_s3(records):
                 "metadata": json.dumps(r["metadata"]) if isinstance(r["metadata"], dict) else str(r["metadata"]),
                 "recordedAt": r["recorded_at"]
             })
+
+        # 1. Publish Master Unified Telemetry Snapshots
+        master_body = json.dumps(formatted, indent=2).encode("utf-8")
         for key_path in ["data/threats.json", "api/threats.json"]:
             s3.put_object(
                 Bucket=bucket_name,
                 Key=key_path,
-                Body=json.dumps(formatted, indent=2).encode("utf-8"),
+                Body=master_body,
                 ContentType="application/json",
                 CacheControl="public, max-age=60, s-maxage=300"
             )
         logger.info(f">>> Published s3://{bucket_name}/data/threats.json ({len(formatted)} records)")
+
+        # 2. Publish Partitioned Category Snapshots for Optimized Edge Pulls
+        category_map = {
+            "EARTHQUAKE": "data/earthquakes.json",
+            "SPACE_WEATHER": "data/space-weather.json",
+            "ASTEROID": "data/asteroids.json",
+            "TERRESTRIAL_WEATHER": "data/weather.json",
+            "STOCK_MARKET": "data/markets.json"
+        }
+
+        for cat_type, file_key in category_map.items():
+            cat_records = [item for item in formatted if item.get("threatType") == cat_type]
+            s3.put_object(
+                Bucket=bucket_name,
+                Key=file_key,
+                Body=json.dumps(cat_records, indent=2).encode("utf-8"),
+                ContentType="application/json",
+                CacheControl="public, max-age=60, s-maxage=300"
+            )
+            logger.info(f">>> Published category feed s3://{bucket_name}/{file_key} ({len(cat_records)} records)")
+
+        # 3. Invalidate CloudFront CDN Edge Cache
+        invalidate_cloudfront(["/data/*", "/api/*"])
     except Exception as e:
-        logger.warning(f"Could not publish threats.json to S3: {e}")
+        logger.warning(f"Could not publish threats snapshots to S3: {e}")
 
 
 # --- LAMBDA HANDLER ENTRYPOINT ---

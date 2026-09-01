@@ -60,6 +60,20 @@ export default function Header({
             </div>
           )}
 
+          {/* REST API Hub Navigation */}
+          <a
+            href="/data-access"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold font-mono transition ${
+              isDark
+                ? 'bg-[#FF007F]/10 hover:bg-[#FF007F]/20 border-[#FF007F]/30 text-[#FF007F]'
+                : 'bg-[#FF007F]/10 hover:bg-[#FF007F]/15 border-[#FF007F]/30 text-[#FF007F]'
+            }`}
+            title="Explore RESTful API & Data Pulls"
+          >
+            <span className="w-2 h-2 rounded-full bg-[#FF007F] animate-pulse"></span>
+            <span>REST API</span>
+          </a>
+
           {/* GitHub Source Link */}
           <a
             href="https://github.com/matteus8/bsl-4/tree/main"
