@@ -121,7 +121,7 @@ export default function RestApiDataPage() {
     if (!rawData) return null;
     if (timeFormat === 'epoch') {
       if (Array.isArray(rawData)) {
-        return rawData.map((item: Record<string, unknown>) => {
+        return rawData.map((item: any) => {
           const recAt = item.recordedAt as string;
           const epochSec = (item.recordedAtEpoch as number) || (recAt ? Math.floor(new Date(recAt).getTime() / 1000) : Math.floor(Date.now() / 1000));
           return {
@@ -131,7 +131,7 @@ export default function RestApiDataPage() {
         });
       }
       if (typeof rawData === 'object' && rawData !== null) {
-        const obj = rawData as Record<string, unknown>;
+        const obj = rawData as any;
         const upAt = (obj.updatedAt || obj.createdAt) as string;
         const epochSec = (obj.updatedAtEpoch as number) || (upAt ? Math.floor(new Date(upAt).getTime() / 1000) : Math.floor(Date.now() / 1000));
         return {
